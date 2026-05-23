@@ -4,3 +4,6 @@ langchain-community
 langchain-core
 langchain-openai
 selenium
+opensearch-py
+langchain-opensearch
+langchain-aws

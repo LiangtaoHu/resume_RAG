@@ -108,9 +108,105 @@ resource "aws_lambda_function" "test_scraper" {
     variables = {
       # Pass the target secret name so boto3 knows where to read the API Key
       SECRETS_MANAGER_NAME = aws_secretsmanager_secret.openai_secret.name
+      OPENSEARCH_URL       = aws_opensearchserverless_collection.vector_db.collection_endpoint
     }
   }
 
   # Forces Terraform to finish building and pushing the Docker image BEFORE attempting to build the Lambda
   depends_on = [null_resource.docker_push]
+}
+
+# 1. OpenSearch Serverless Collection (The Vector Database Cluster)
+resource "aws_opensearchserverless_collection" "vector_db" {
+  name             = "resume-rag-db"
+  type             = "VECTORSEARCH" # Crucial: Allocates specific vector indexing infrastructure
+  description      = "Vector store for job listing contexts and resumes"
+}
+
+# 2. OpenSearch Security Encryption Policy (Required)
+resource "aws_opensearchserverless_security_policy" "encryption" {
+  name        = "rag-encryption-policy"
+  type        = "encryption"
+  description = "Encryption policy for vector search collection"
+  
+  # AWS manages encryption using their default keys
+  policy = jsonencode({
+    Rules = [{
+      ResourceType = "collection"
+      Resource     = ["collection/resume-rag-db"]
+    }]
+    AWSOwnedKey = true
+  })
+}
+
+# 3. OpenSearch Network Access Policy (Public endpoint configuration)
+resource "aws_opensearchserverless_security_policy" "network" {
+  name        = "rag-network-policy"
+  type        = "network"
+  description = "Public access policy for vector collection endpoints"
+  
+  policy = jsonencode([{
+    Component    = "collection"
+    ResourceType = "collection"
+    Resource     = ["collection/resume-rag-db"]
+  }, {
+    Component    = "dashboard"
+    ResourceType = "dashboard"
+    Resource     = ["collection/resume-rag-db"]
+  }])
+}
+
+# 4. Data Access Policy: Grant permissions to your Lambda function's IAM Role
+resource "aws_opensearchserverless_access_policy" "data_access" {
+  name        = "rag-data-access-policy"
+  type        = "data"
+  description = "Grants read/write permissions to Lambda execution role"
+  
+  policy = jsonencode([{
+    Rules = [{
+      ResourceType = "index"
+      Resource     = ["index/resume-rag-db/*"]
+      Permission   = [
+        "aoss:CreateIndex",
+        "aoss:DescribeIndex",
+        "aoss:ReadDocument",
+        "aoss:WriteDocument"
+      ]
+    }, {
+      ResourceType = "collection"
+      Resource     = ["collection/resume-rag-db"]
+      Permission   = ["aoss:CreateCollectionItems"]
+    }]
+    Principal = [aws_iam_role.iam_for_lambda.arn]
+  }])
+}
+
+# 5. Grant your Lambda base IAM role structural network connectivity rights
+resource "aws_iam_role_policy" "lambda_opensearch_policy" {
+  name = "lambda-opensearch-serverless-access"
+  role = aws_iam_role.iam_for_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["aoss:APIAccessAll"]
+      Resource = [aws_opensearchserverless_collection.vector_db.arn]
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "lambda_bedrock_policy" {
+  name = "lambda-bedrock-model-access"
+  role = aws_iam_role.iam_for_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["bedrock:InvokeModel"]
+      # Restricts model rights to just the titan embedding family for security
+      Resource = ["arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"]
+    }]
+  })
 }

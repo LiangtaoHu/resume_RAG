@@ -7,6 +7,12 @@ from langchain_community.document_loaders import SeleniumURLLoader
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
+from opensearchpy import AWSV4SignerAuth
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_aws import BedrockEmbeddings
+from langchain_opensearch import OpenSearchVectorSearch
+
 secrets_client = boto3.client("secretsmanager")
 
 def get_openai_key():
@@ -75,11 +81,57 @@ def lambda_handler(event, context):
         chain = template | structured_llm
         response = chain.invoke({"content": web_content})
 
-        # Return structured response
+        # 1. Convert the structured Pydantic object back into a clean string for vectorization
+        job_text_content = f"""
+        Company: {response.company}
+        Position: {response.title}
+        Requirements: {", ".join(response.requirements)}
+        Optional Skills: {", ".join(response.optional_skills)}
+        """
+
+        doc = Document(
+            page_content=job_text_content,
+            metadata={
+                "source_url": url,
+                "company": response.company,
+                "title": response.title
+            }
+        )
+
+        # 2. Chunk the document
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        docs = text_splitter.split_documents([doc])
+
+        bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-1")
+        
+        embeddings = BedrockEmbeddings(
+            client=bedrock_client,
+            model_id="amazon.titan-embed-text-v2:0" # Titan V2 provides flexible dimension outputs
+        )
+
+        session = boto3.Session()
+        credentials = session.get_credentials()
+        region = os.environ.get("AWS_REGION", "us-east-1")
+        auth = AWSV4SignerAuth(credentials, region, "aoss") 
+
+        vector_store = OpenSearchVectorSearch.from_documents(
+            documents=docs,
+            embedding=embeddings,
+            opensearch_url=os.environ.get("OPENSEARCH_URL"),
+            http_auth=auth,
+            use_ssl=True,
+            verify_certs=True,
+            connection_class=OpenSearchVectorSearch.get_connection_class(),
+            index_name="job-listings"
+        )
+
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(response.model_dump())
+            "body": json.dumps({
+                "message": "Job parsed and successfully saved to AWS OpenSearch.",
+                "data": response.model_dump()
+            })
         }
 
     except Exception as e:

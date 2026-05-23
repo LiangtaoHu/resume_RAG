@@ -1,0 +1,6 @@
+boto3
+pydantic
+langchain-community
+langchain-core
+langchain-openai
+selenium

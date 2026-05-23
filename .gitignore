@@ -1,2 +1,3 @@
 langchain_env/
+.virtual_env/
 .terraform/

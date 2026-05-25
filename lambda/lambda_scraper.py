@@ -25,7 +25,6 @@ def get_openai_key():
         print(f"Error fetching secret from AWS: {e}")
         raise e
 
-# Define Pydantic schema outside the handler for efficiency
 class JobListing(BaseModel):
     title: str = Field(description="Name of the job position of this specific job listing.")
     company: str = Field(description="The specific company this job listing was made by.")
@@ -34,7 +33,7 @@ class JobListing(BaseModel):
 
 def lambda_handler(event, context):
     try:
-        # Extract the URL dynamically from the Lambda event payload
+        # Extract the URL from the Lambda event payload
         body = json.loads(event.get("body", "{}")) if "body" in event else event
         url = body.get("url")
         
@@ -81,7 +80,7 @@ def lambda_handler(event, context):
         chain = template | structured_llm
         response = chain.invoke({"content": web_content})
 
-        # 1. Convert the structured Pydantic object back into a clean string for vectorization
+        # Convert the structured Pydantic object back into a clean string for vectorization
         job_text_content = f"""
         Company: {response.company}
         Position: {response.title}
@@ -106,7 +105,7 @@ def lambda_handler(event, context):
         
         embeddings = BedrockEmbeddings(
             client=bedrock_client,
-            model_id="amazon.titan-embed-text-v2:0" # Titan V2 provides flexible dimension outputs
+            model_id="amazon.titan-embed-text-v2:0" 
         )
 
         session = boto3.Session()

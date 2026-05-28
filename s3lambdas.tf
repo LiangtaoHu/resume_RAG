@@ -41,7 +41,9 @@ resource "aws_lambda_function" "lambda_s3_upload_function" {
     code_sha256 = data.archive_file.lambda_s3_upload_file.output_base64sha256
     runtime = "python3.9"
     environment {
-      variables = {}
+      variables = {
+        RESUME_BUCKET_NAME = aws_s3_bucket.resume_bucket.id
+      }
     }
     tags = {}
 }

@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 from opensearchpy import AWSV4SignerAuth
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_aws import BedrockEmbeddings
+from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_opensearch import OpenSearchVectorSearch
 
 secrets_client = boto3.client("secretsmanager")
@@ -64,12 +64,17 @@ def lambda_handler(event, context):
         data = loader.load()
         web_content = "\n\n".join([doc.page_content for doc in data])
 
-        # Fetch OpenAI API key from Secrets Manager
-        api_key = get_openai_key()
+        # # Fetch OpenAI API key from Secrets Manager
+        # api_key = get_openai_key()
 
-        # Initialize LLM with the injected API key
-        llm = ChatOpenAI(model="gpt-4o", api_key=api_key)
-        structured_llm = llm.with_structured_output(JobListing, method="json_schema")
+        # # Initialize LLM with the injected API key
+        # llm = ChatOpenAI(model="gpt-4o", api_key=api_key)
+        # structured_llm = llm.with_structured_output(JobListing, method="json_schema")
+        llm = ChatBedrockConverse(
+            model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            region_name="us-east-1"
+        )
+        structured_llm = llm.with_structured_output(JobListing)
 
         # Set up the chain and invoke
         template = ChatPromptTemplate([

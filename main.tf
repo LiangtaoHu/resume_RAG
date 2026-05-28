@@ -43,18 +43,18 @@ resource "null_resource" "Lambda_DockerFile_Update" {
 }
 
 // We use AWS secret manager in order to save the OpenAI secret key so the lambda can call that instead of having it hard coded. 
-resource "aws_secretsmanager_secret" "openai_secret" {
-  name        = "lambda-openai-api-key"
-  description = "OpenAI API Key for the Python scraper Lambda"
-}
+# resource "aws_secretsmanager_secret" "openai_secret" {
+#   name        = "lambda-openai-api-key"
+#   description = "OpenAI API Key for the Python scraper Lambda"
+# }
 
-// Provide a value to the secret
-resource "aws_secretsmanager_secret_version" "openai_secret_val" {
-  secret_id     = aws_secretsmanager_secret.openai_secret.id
-  secret_string = jsonencode({
-    OPENAI_API_KEY = var.openai_api_key
-  })
-}
+# // Provide a value to the secret
+# resource "aws_secretsmanager_secret_version" "openai_secret_val" {
+#   secret_id     = aws_secretsmanager_secret.openai_secret.id
+#   secret_string = jsonencode({
+#     OPENAI_API_KEY = var.openai_api_key
+#   })
+# }
 
 // IAM Role creation for Lambda to assume
 resource "aws_iam_role" "lambda_role" {
@@ -128,7 +128,7 @@ resource "aws_lambda_function" "web_scraper_lambda" {
   memory_size   = 2048
   environment {
     variables = {
-      SECRETS_MANAGER_NAME = aws_secretsmanager_secret.openai_secret.name
+      # SECRETS_MANAGER_NAME = aws_secretsmanager_secret.openai_secret.name
       OPENSEARCH_URL       = aws_opensearchserverless_collection.vector_db.collection_endpoint
     }
   }

@@ -32,6 +32,8 @@ resource "aws_subnet" "subnets" {
         private-subnet-1a = ["192.168.0.0/26", "us-east-1a"]
         private-subnet-1b = ["192.168.1.0/26", "us-east-1b"]
         private-subnet-1c = ["192.168.2.0/26", "us-east-1c"]
+        public-subnet-1a = ["192.168.3.0/26", "us-east-1a"]
+        public-subnet-1b = ["192.168.4.0/26", "us-east-1b"]
     })
     vpc_id = aws_vpc.chatbot_vpc.id
     cidr_block = each.value[0]
@@ -45,23 +47,112 @@ resource "aws_lb" "app_lb" {
     name = "app_lb"
     internal = false
     load_balancer_type = "application"
-    security_groups = []
-    subnets = [for subnet in aws_subnet.subnets: subnet.id]
+    security_groups = [aws_security_group.alb_sec.id]
+    subnets = [
+         for key, subnet in aws_subnet.subnets : subnet.id if length(regexall("^public-subnet", key)) > 0
+    ]
     access_logs {
       bucket = aws_s3_bucket.app_lb_bucket.id
       enabled = true
     }
 }
 
+resource "aws_lb_target_group" "alb_target_group" {
+    name = "alb_target_group"
+    port = 80
+    protocol = "HTTP"
+    vpc_id = aws_vpc.chatbot_vpc.id
+    target_type = "instance"
+    // Health check?
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.app_alb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg.arn
+  }
+}
+
+resource "aws_autoscaling_attachment" "asg_attachment_alb" {
+  autoscaling_group_name = aws_autoscaling_group.ASG.name
+  lb_target_group_arn    = aws_lb_target_group.app_tg.arn
+}
+
 /* 
     When implementing an ASG, we need to keep track of the following information:
-        - Name
-        - Max/Min/Desired size
-        - Health check
+        - Name                                                      DONE
+        - Max/Min/Desired size                                      DONE but needs clarification
+        - Health check                                              DONE but needs clarification
         - Scaling Method
-        - Mix of instance types (e.g. spot instances)
-        - Specified Launch Template (Defined in ec2.tf)
-        - Lifehook Cycles?
-        - Remember to make it multi-AZ across our private subnets
+            - Cooldown period
+        - Mix of instance types (e.g. spot instances)           
+        - Specified Launch Template (Defined in ec2.tf)             
+        - Lifehook Cycles?                                          
+        - Notifications/Logs/Etc.
+        - Remember to make it multi-AZ across our private subnets   DONE
 */
-resource "aws_autoscaling_group" "ASG" {}
+resource "aws_autoscaling_group" "ASG" {
+    name = "llm_ASG"
+    max_size = 3
+    min_size = 6
+    desired_capacity = 4
+    health_check_type = "ELB"
+    vpc_zone_identifier = [for subnet in aws_subnet.subnets: subnet.id]
+    // We want to have a group of full of ec2 instances on demand, no spot instances or anything for now
+    // Launch Template block
+    // No need for lifehook cycles for now
+    traffic_source {
+      identifier = aws_lb.app_lb.arn
+      type = "elbv2"
+    }
+}
+
+resource "aws_security_group" "alb_sec" {
+    name = "alb_sec"
+    description = "Allow users to send requests to the ALB and send requests to the ec2 instances"
+    vpc_id = aws_vpc.chatbot_vpc.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_sec_ingress" {
+    security_group_id = aws_security_group.alb_sec.id
+    cidr_ipv4 = "0.0.0.0/0"
+    from_port = 80
+    to_port = 80
+    ip_protocol = "tcp"
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_sec_egress" {
+    security_group_id = aws_security_group.alb_sec.id
+    referenced_security_group_id = aws_security_group.ec2_sec.id
+    from_port = 80
+    to_port = 80
+    ip_protocol = "tcp"
+}
+
+resource "aws_security_group" "ec2_sec" {
+    name = "ec2_sec"
+    description = "Allow ALB to connect to EC2 instances both inbound and outbound traffic"
+    vpc_id = aws_vpc.chatbot_vpc.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "allow_alb_ipv4" {
+    security_group_id = aws_security_group.allow_alb.id
+    referenced_security_group_id = aws_security_group.alb_sec.id
+    from_port = 80
+    to_port = 80
+    ip_protocol = "tcp"
+}
+
+resource "aws_vpc_endpoint" "bedrock" {
+    vpc_id = aws_vpc.chatbot_vpc.id
+    service_name = "com.amazonaws.us-east-1.bedrock-runtime"
+    vpc_endpoint_type = "Interface"
+
+    security_group_ids = [] // Change to endpoint security group
+    subnet_ids = [] // Who can connect to the vpc endpoint
+    private_dns_enabled = true // Explain what this does
+}

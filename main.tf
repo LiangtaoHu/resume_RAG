@@ -178,7 +178,7 @@ resource "aws_opensearchserverless_security_policy" "network" {
 resource "aws_opensearchserverless_access_policy" "data_access" {
   name        = "rag-data-access-policy"
   type        = "data"
-  description = "Grants read/write permissions to Lambda execution role"
+  description = "Grants read/write permissions to Lambda execution role and Bedrock"
   
   policy = jsonencode([{
     Rules = [{
@@ -199,7 +199,7 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
         "aoss:DescribeCollectionItems"
       ]
     }]
-    Principal = [aws_iam_role.lambda_role.arn]
+    Principal = [aws_iam_role.lambda_role.arn, aws_iam_role.bedrock_kb_role.arn]
   }])
 }
 

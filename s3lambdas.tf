@@ -17,7 +17,7 @@ resource "aws_iam_role" "lambda_s3_upload_role" {
 resource "aws_iam_role_policy" "lambda_s3_upload_policy" {
     name = "lambda_s3_upload_policy"
     role = aws_iam_role.lambda_s3_upload_role.id
-    policy = jsondecode({
+    policy = jsonencode({
         Version = "2012-10-17"
         Statement = [{
             Action = [ "s3:PutObject"]
@@ -38,7 +38,7 @@ resource "aws_lambda_function" "lambda_s3_upload_function" {
     function_name = "lambda_s3_upload_function"
     role = aws_iam_role.lambda_s3_upload_role.arn
     handler = "s3_upload.lambda_handler"
-    code_sha256 = data.archive_file.lambda_s3_upload_file.output_base64sha256
+    source_code_hash = data.archive_file.lambda_s3_upload_file.output_base64sha256
     runtime = "python3.9"
     environment {
       variables = {

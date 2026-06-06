@@ -3,6 +3,10 @@ provider "aws" {
   region = "us-east-1"
 }
 
+module "opensearch" {
+  source = "./conversation"
+}
+
 /* 
   Stage One:
   - Creating the Lambda Function that serves to scrape webpages, get the necessary information, then have them embedded.
@@ -78,27 +82,27 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
 }
 
 // Define policy document that allows the lambda function to only access the OpenAI secret key
-data "aws_iam_policy_document" "lambda_secrets_policy" {
-  statement {
-    effect = "Allow"
-    actions = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.openai_secret.arn]
-  }
-}
+# data "aws_iam_policy_document" "lambda_secrets_policy" {
+#   statement {
+#     effect = "Allow"
+#     actions = ["secretsmanager:GetSecretValue"]
+#     resources = [aws_secretsmanager_secret.openai_secret.arn]
+#   }
+# }
 
 // Create IAM policy with that policy document
-resource "aws_iam_policy" "lambda_secrets_policy" {
-  name = "lambda-secrets-manager-read"
-  policy = data.aws_iam_policy_document.lambda_secrets_policy.json
-}
+# resource "aws_iam_policy" "lambda_secrets_policy" {
+#   name = "lambda-secrets-manager-read"
+#   policy = data.aws_iam_policy_document.lambda_secrets_policy.json
+# }
 
 // Attaches it to the role
-resource "aws_iam_role_policy_attachment" "lambda_secretmanager_read" {
-  role = aws_iam_role.lambda_role.arn
-  policy_arn = aws_iam_policy.lambda_secrets_policy.name
-}
+# resource "aws_iam_role_policy_attachment" "lambda_secretmanager_read" {
+#   role = aws_iam_role.lambda_role.arn
+#   policy_arn = aws_iam_policy.lambda_secrets_policy.name
+# }
 
-resource "aws_iam_policy_document" "lambda_bedrock_policy" {
+data "aws_iam_policy_document" "lambda_bedrock_policy" {
   statement {
     effect = "Allow"
     actions = ["bedrock:InvokeModel"]
@@ -108,7 +112,7 @@ resource "aws_iam_policy_document" "lambda_bedrock_policy" {
 
 resource "aws_iam_policy" "lambda_bedrock_policy" {
   name = "lambda-bedrock-model-access"
-  policy = aws_iam_policy_document.lambda_bedrock_policy.json
+  policy = data.aws_iam_policy_document.lambda_bedrock_policy.json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_bedrock_policy" {
@@ -121,99 +125,30 @@ resource "aws_lambda_function" "web_scraper_lambda" {
   // Make sure we first finish Lambda_DockerFile_Update before making this, question more
   depends_on = [null_resource.Lambda_DockerFile_Update] 
   function_name = "scraper_lambda_function"
-  role          = aws_iam_role.iam_for_lambda.arn
+  role          = aws_iam_role.lambda_role.arn
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.lambda_repo.repository_url}:latest"
+  image_uri     = "${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest"
   timeout       = 180
   memory_size   = 2048
   environment {
     variables = {
       # SECRETS_MANAGER_NAME = aws_secretsmanager_secret.openai_secret.name
-      OPENSEARCH_URL       = aws_opensearchserverless_collection.vector_db.collection_endpoint
+      OPENSEARCH_URL = module.opensearch.opensearch_url
     }
   }
-}
-
-// OpenSearch Serverless Collection as Vector Database
-resource "aws_opensearchserverless_collection" "vector_db" {
-  name             = "resume-rag-database"
-  type             = "VECTORSEARCH" # Crucial: Allocates specific vector indexing infrastructure
-  description      = "Vector store for job listing contexts and resumes"
-}
-
-// OpenSearch Security Encryption Policy
-resource "aws_opensearchserverless_security_policy" "encryption" {
-  name        = "rag-encryption-policy"
-  type        = "encryption"
-  description = "Encryption policy for vector search collection"
-  
-  # AWS manages encryption using their default keys
-  policy = jsonencode({
-    Rules = [{
-      ResourceType = "collection"
-      Resource     = ["collection/resume-rag-database"]
-    }]
-    AWSOwnedKey = true
-  })
-}
-
-// OpenSearch Network Access Policy (Public endpoint configuration)
-resource "aws_opensearchserverless_security_policy" "network" {
-  name        = "rag-network-policy"
-  type        = "network"
-  description = "Public access policy for vector collection endpoints"
-  
-  policy = jsonencode([{
-    Component    = "collection"
-    ResourceType = "collection"
-    Resource     = ["collection/resume-rag-db"]
-  }, {
-    Component    = "dashboard"
-    ResourceType = "dashboard"
-    Resource     = ["collection/resume-rag-db"]
-  }])
-}
-
-// Data Access Policy: Grant permissions to your Lambda function's IAM Role
-resource "aws_opensearchserverless_access_policy" "data_access" {
-  name        = "rag-data-access-policy"
-  type        = "data"
-  description = "Grants read/write permissions to Lambda execution role and Bedrock"
-  
-  policy = jsonencode([{
-    Rules = [{
-      ResourceType = "index"
-      Resource     = ["index/resume-rag-db/*"]
-      Permission   = [
-        "aoss:CreateIndex",
-        "aoss:DescribeIndex",
-        "aoss:ReadDocument",
-        "aoss:WriteDocument"
-      ]
-    }, {
-      ResourceType = "collection"
-      Resource     = ["collection/resume-rag-db"]
-      Permission   = [
-        "aoss:CreateCollectionItems",
-        "aoss:UpdateCollectionItems",
-        "aoss:DescribeCollectionItems"
-      ]
-    }]
-    Principal = [aws_iam_role.lambda_role.arn, aws_iam_role.bedrock_kb_role.arn]
-  }])
 }
 
 // Grant your Lambda base IAM role structural network connectivity rights
 resource "aws_iam_role_policy" "lambda_opensearch_policy" {
   name = "lambda-opensearch-serverless-access"
-  role = aws_iam_role.iam_for_lambda.id
+  role = aws_iam_role.lambda_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
       Action   = ["aoss:APIAccessAll"]
-      Resource = [aws_opensearchserverless_collection.vector_db.arn]
+      Resource = [module.opensearch.opensearch_arn]
     }]
   })
 }

@@ -1,6 +1,45 @@
+resource "aws_iam_role" "CognitoSNSRole" {
+  name = "CognitoSMSRole"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = {
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Sid = ""
+      Principal = {
+        Service = "cognito-idp.amazonaws.com"
+      }
+      Condition = {
+        "StringEquals" = {
+          "sts:ExternalId": var.SNS_external_ID
+        }
+      }
+    }
+  })
+}
+
+data "aws_iam_policy_document" "SNS_policy_doc" {
+  statement {
+    effect = "Allow"
+    actions = ["sns:Publish"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "SNS_policy" {
+  name = "sms-policy"
+  description = "A policy to allow sns messages to be published"
+  policy = data.aws_iam_policy_document.SNS_policy_doc.json
+}
+
+resource "aws_iam_role_policy_attachment" "attach_SNS_policy" {
+  role = aws_iam_role.CognitoSNSRole.name
+  policy_arn = aws_iam_policy.SNS_policy.arn
+}
+
 resource "aws_cognito_user_pool" "user_pool" {
     name = "user_pool"
-    username_attributes = ["preferred_username"]
+    alias_attributes = ["preferred_username", "email"]
     mfa_configuration = "OPTIONAL"
 
     account_recovery_setting {
@@ -22,16 +61,16 @@ resource "aws_cognito_user_pool" "user_pool" {
       }
     }
 
-    email_configuration {
-      
-    }
+    auto_verified_attributes = ["email", "phone_number"]
 
-    email_mfa_configuration {
-      message = "MFA Sign in code: {####}"
-      subject = "Resume Optimizer - Sign In MFA Code"
+    // Ensures verified email
+    email_configuration {
+      email_sending_account = "COGNITO_DEFAULT" # Max of 50 emails a day, later set to SES, which will allow MFA for email
     }
 
     sms_configuration {
       // Used for MFA and confirming this is your phone during SMS user verification
+      external_id = var.SNS_external_ID
+      sns_caller_arn = aws_iam_role.CognitoSNSRole.arn
     }
 }

@@ -43,7 +43,9 @@ resource "aws_bedrockagent_knowledge_base" "rag_kb" {
         collection_arn = aws_opensearchserverless_collection.vector_db.arn
         vector_index_name = "resume-rag-database"
         field_mapping {
-          
+          vector_field = "bedrock-vector"
+          text_field = "bedrock-text"
+          metadata_field = "bedrock-metadata"
         }
       }
     }

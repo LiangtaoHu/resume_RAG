@@ -74,3 +74,19 @@ resource "aws_cognito_user_pool" "user_pool" {
       sns_caller_arn = aws_iam_role.CognitoSNSRole.arn
     }
 }
+
+resource "aws_cognito_user_pool_domain" "alb_cog_domain" {
+  domain = "alb-cog-domain"
+  user_pool_id = aws_cognito_user_pool.user_pool.id
+}
+
+resource "aws_cognito_user_pool_client" "alb_cog_client" {
+  name = "alb-cog-client"
+  user_pool_id = aws_cognito_user_pool.user_pool.id
+  allowed_oauth_flows_user_pool_client = true
+  callback_urls = [var.alb_domain_name]
+  allowed_oauth_flows = ["code"]
+  allowed_oauth_scopes = ["openid", "email", "phone"]
+  supported_identity_providers = ["COGNITO"]
+  generate_secret = true
+}

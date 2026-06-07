@@ -9,3 +9,8 @@ variable "SNS_external_ID" {
     description = "External ID for SNS messaging in Cognito"
     sensitive = true
 }
+
+variable "alb_domain_name" {
+  description = "ALB Custom Domain Name"
+  type        = string
+}

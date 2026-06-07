@@ -57,29 +57,102 @@ resource "aws_lb" "app_lb" {
     }
 }
 
+/*
+Actions user can take:
+- Upload resume
+    - This would be done with an S3 Presigned URL via ALB to Lambda, this path would be used by the main ASG as well. 
+- Converse with chatbot to optimize resume
+    - Selecting S3 resume or sending a new one
+    - Choose Job Listing or sending a new one
+    - Asking and optimizing
+- Upload Job listing beforehand
+    - Same thing as upload resume but it just takes a link?
+*/
+resource "aws_lb_target_group" "parse_listing" {
+    name = "parse-job-listing"
+    port = 80
+    protocol = "HTTPS"
+    vpc_id = aws_vpc.chatbot_vpc.id
+    target_type = "lambda"
+}
+
+resource "aws_lb_target_group" "upload_resume" {
+    name = "upload-resume"
+    port = 80
+    protocol = "HTTPS"
+    vpc_id = aws_vpc.chatbot_vpc.id
+    target_type = "lambda"
+}
+
 resource "aws_lb_target_group" "alb_target_group" {
     name = "alb-target-group"
     port = 80
-    protocol = "HTTP"
+    protocol = "HTTPS"
     vpc_id = aws_vpc.chatbot_vpc.id
     target_type = "instance"
     // Health check?
 }
 
 resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.app_lb.arn
-  port              = 80
-  protocol          = "HTTP"
+    load_balancer_arn = aws_lb.app_lb.arn
+    port              = 80
+    protocol          = "HTTPS"
+  
+    default_action {
+        type = "authenticate-cognito"
+        authenticate_cognito {
+          user_pool_arn = aws_cognito_user_pool.user_pool.arn
+          user_pool_client_id = aws_cognito_user_pool_client.alb_cog_client.id
+          user_pool_domain = aws_cognito_user_pool_domain.alb_cog_domain.domain
+        }
+    } 
+}
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.alb_target_group.arn
-  }
+resource "aws_lb_listener_rule" "rule_upload_resume" {
+    listener_arn = aws_lb_listener.http.arn
+    priority = 100
+    action {
+        type = "forward"
+        target_group_arn = aws_lb_target_group.upload_resume.arn
+    }
+    condition {
+      path_pattern {
+        values = ["/upload-resume"]
+      }
+    }
+}
+
+resource "aws_lb_listener_rule" "rule_parse_listing" {
+    listener_arn = aws_lb_listener.http.arn
+    priority = 100
+    action {
+        type = "forward"
+        target_group_arn = aws_lb_target_group.parse_listing.arn
+    }
+    condition {
+      path_pattern {
+        values = ["/parse-listing"]
+      }
+    }
+}
+
+resource "aws_lb_listener_rule" "main" {
+    listener_arn = aws_lb_listener.http.arn
+    priority = 100
+    action {
+        type = "forward"
+        target_group_arn = aws_lb_target_group.alb_target_group.arn
+    }
+    condition {
+      path_pattern {
+        values = ["/converse"]
+      }
+    }
 }
 
 resource "aws_autoscaling_attachment" "asg_attachment_alb" {
   autoscaling_group_name = aws_autoscaling_group.ASG.name
-  lb_target_group_arn    = aws_lb_target_group.app_tg.arn
+  lb_target_group_arn    = aws_lb_target_group.alb_target_group.arn
 }
 
 /* 
@@ -95,6 +168,10 @@ resource "aws_autoscaling_attachment" "asg_attachment_alb" {
         - Notifications/Logs/Etc.
         - Remember to make it multi-AZ across our private subnets   DONE
 */
+resource "aws_launch_template" "ec2_web_server" {
+    name = "web_server_template"
+}
+
 resource "aws_autoscaling_group" "ASG" {
     name = "llm_ASG"
     max_size = 3
@@ -105,6 +182,11 @@ resource "aws_autoscaling_group" "ASG" {
     // We want to have a group of full of ec2 instances on demand, no spot instances or anything for now
     // Launch Template/Config/Mixed instance block
     // No need for lifehook cycles for now
+    launch_template {
+        id = aws_launch_template.ec2_web_server.id
+        version = "$Latest"
+    }
+
     traffic_source {
       identifier = aws_lb.app_lb.arn
       type = "elbv2"

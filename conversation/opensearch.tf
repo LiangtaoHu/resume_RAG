@@ -25,17 +25,28 @@ resource "aws_opensearchserverless_security_policy" "encryption" {
 resource "aws_opensearchserverless_security_policy" "network" {
   name        = "rag-network-policy"
   type        = "network"
-  description = "Public access policy for vector collection endpoints"
+  description = "public access policy for vector collection endpoints"
   
-  policy = jsonencode([{
-    Component    = "collection"
-    ResourceType = "collection"
-    Resource     = ["collection/resume-rag-db"]
-  }, {
-    Component    = "dashboard"
-    ResourceType = "dashboard"
-    Resource     = ["collection/resume-rag-db"]
-  }])
+  policy = jsonencode([
+    {
+      Description = "public access policy for vector collection endpoints"
+      Rules = [
+        {
+          ResourceType = "collection"
+          Resource = [
+            "collection/resume-rag-db"
+          ]
+        }, 
+        {
+          ResourceType = "dashboard"
+          Resource = [
+            "collection/resume-rag-db"
+          ]
+        }
+      ],
+      "AllowFromPublic": true
+    }
+  ])
 }
 
 // Data Access Policy: Grant permissions to your Lambda function's IAM Role
@@ -44,8 +55,10 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
   type        = "data"
   description = "Grants read/write permissions to Lambda execution role and Bedrock"
   
-  policy = jsonencode([{
-    Rules = [{
+  policy = jsonencode([
+    {
+    Rules = [
+      {
       ResourceType = "index"
       Resource     = ["index/resume-rag-db/*"]
       Permission   = [
@@ -54,7 +67,8 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
         "aoss:ReadDocument",
         "aoss:WriteDocument"
       ]
-    }, {
+    }, 
+    {
       ResourceType = "collection"
       Resource     = ["collection/resume-rag-db"]
       Permission   = [

@@ -1,8 +1,11 @@
+data "aws_partition" "curr_partition" {}
+data "aws_region" "curr_region" {}
+
 data "aws_iam_policy_document" "bedrock_kb_role_policy" {
     statement {
         effect = "Allow"
         actions = ["s3:GetObject", "s3:ListBucket"]
-        resources = [aws_s3_bucket.resume_bucket.id]
+        resources = [var.bucket_name]
     }
 
     statement {
@@ -14,7 +17,7 @@ data "aws_iam_policy_document" "bedrock_kb_role_policy" {
     statement {
         effect = "Allow"
         actions = ["bedrock:InvokeModel"]
-        resources = "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
+        resources = ["arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"]
     }
 }
 
@@ -64,13 +67,13 @@ resource "aws_iam_role" "bedrock_agent_role" {
 data "aws_iam_policy_document" "agent_permissions" {
     statement {
       actions = ["bedrock:InvokeModel"]
-      resources = "arn:${data.aws_partition.current.partition}:bedrock:${data.aws_region.current.region}::foundation-model/anthropic.claude-v2"
+      resources = ["arn:${data.aws_partition.curr_partition.partition}:bedrock:${data.aws_region.curr_region.region}::foundation-model/anthropic.claude-v2"]
     }
 }
 
 resource "aws_iam_role_policy" "agent_permission_attachment" {
   policy = data.aws_iam_policy_document.agent_permissions.json
-  role   = aws_iam_role.agent_trust.id
+  role   = aws_iam_role.bedrock_agent_role.id
 }
 
 resource "aws_bedrockagent_agent" "resume-agent" {
@@ -80,12 +83,12 @@ resource "aws_bedrockagent_agent" "resume-agent" {
   foundation_model            = "anthropic.claude-v2"
   instruction                 = "You are a professional at optimizing CS resumes to job applications. You will have access to a vector database which will contain the most important information about a job listing and a user resume. Your job is to edit the resume to increase the chance of being hired."
 
-memory_configuration {
-  enabled_memory_types = ["SESSION_SUMMARY"]
-  storage_days         = 30
+  memory_configuration {
+    enabled_memory_types = ["SESSION_SUMMARY"]
 
-  session_summary_configuration {
-    max_recent_sessions = 10
+    session_summary_configuration {
+      max_recent_sessions = 10
+    }
+    storage_days = 30
   }
-}
 }

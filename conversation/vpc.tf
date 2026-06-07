@@ -73,7 +73,7 @@ resource "aws_lb_listener" "http" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.app_target_group.arn
+    target_group_arn = aws_lb_target_group.alb_target_group.arn
   }
 }
 
@@ -103,7 +103,7 @@ resource "aws_autoscaling_group" "ASG" {
     health_check_type = "ELB"
     vpc_zone_identifier = [for subnet in aws_subnet.subnets: subnet.id]
     // We want to have a group of full of ec2 instances on demand, no spot instances or anything for now
-    // Launch Template block
+    // Launch Template/Config/Mixed instance block
     // No need for lifehook cycles for now
     traffic_source {
       identifier = aws_lb.app_lb.arn
@@ -140,7 +140,7 @@ resource "aws_security_group" "ec2_sec" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "allow_alb_ipv4" {
-    security_group_id = aws_security_group.allow_alb.id
+    security_group_id = aws_security_group.ec2_sec.id
     referenced_security_group_id = aws_security_group.alb_sec.id
     from_port = 80
     to_port = 80

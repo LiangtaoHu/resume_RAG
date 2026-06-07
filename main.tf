@@ -5,6 +5,8 @@ provider "aws" {
 
 module "opensearch" {
   source = "./conversation"
+  bucket_name = aws_s3_bucket.resume_bucket.id
+  lambda_role = aws_iam_role.lambda_role.arn
 }
 
 /* 

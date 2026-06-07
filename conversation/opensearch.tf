@@ -63,6 +63,6 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
         "aoss:DescribeCollectionItems"
       ]
     }]
-    Principal = [aws_iam_role.lambda_role.arn, aws_iam_role.bedrock_kb_role.arn]
+    Principal = [var.lambda_role, aws_iam_role.bedrock_kb_role.arn]
   }])
 }

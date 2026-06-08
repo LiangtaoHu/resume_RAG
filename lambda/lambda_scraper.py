@@ -13,17 +13,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_opensearch import OpenSearchVectorSearch
 
-secrets_client = boto3.client("secretsmanager")
-
-def get_openai_key():
-    secret_name = os.environ.get("SECRETS_MANAGER_NAME")
-    try:
-        response = secrets_client.get_secret_value(SecretId=secret_name)
-        secret_dict = json.loads(response["SecretString"])
-        return secret_dict["OPENAI_API_KEY"]
-    except Exception as e:
-        print(f"Error fetching secret from AWS: {e}")
-        raise e
+# TODO: Create separate indexes based on cognito user header value, make agent use that index somehow?
 
 class JobListing(BaseModel):
     title: str = Field(description="Name of the job position of this specific job listing.")

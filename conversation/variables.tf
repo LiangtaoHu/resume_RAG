@@ -8,6 +8,16 @@ variable "lambda_role" {
   type        = string
 }
 
+variable "upload_resume_ARN" {
+  description = "Lambda function ARN responsible for uploading resumes"
+  type        = string
+}
+
+variable "parse_listing_ARN" {
+  description = "Lambda function ARN responsible for parsing job listings"
+  type        = string
+}
+
 variable "alb_domain_name" {
   description = "ALB Custom Domain Name"
   type        = string

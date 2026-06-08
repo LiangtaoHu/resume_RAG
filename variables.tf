@@ -14,3 +14,8 @@ variable "alb_domain_name" {
   description = "ALB Custom Domain Name"
   type        = string
 }
+
+variable "lambda_region" {
+  description = "Region name for Lambda functions to upload resumes or parse job listings"
+  type        = string
+}

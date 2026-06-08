@@ -155,6 +155,16 @@ resource "aws_autoscaling_attachment" "asg_attachment_alb" {
   lb_target_group_arn    = aws_lb_target_group.alb_target_group.arn
 }
 
+resource "aws_lb_target_group_attachment" "upload_attach" {
+    target_group_arn = aws_lb_target_group.upload_resume.arn
+    target_id = var.upload_resume_ARN
+}
+
+resource "aws_lb_target_group_attachment" "parse_attach" {
+    target_group_arn = aws_lb_target_group.upload_resume.arn
+    target_id = var.parse_listing_ARN
+}
+
 /* 
     When implementing an ASG, we need to keep track of the following information:
         - Name                                                      DONE

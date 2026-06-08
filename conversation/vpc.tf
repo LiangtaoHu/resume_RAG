@@ -161,7 +161,7 @@ resource "aws_lb_target_group_attachment" "upload_attach" {
 }
 
 resource "aws_lb_target_group_attachment" "parse_attach" {
-    target_group_arn = aws_lb_target_group.upload_resume.arn
+    target_group_arn = aws_lb_target_group.parse_listing.arn
     target_id = var.parse_listing_ARN
 }
 

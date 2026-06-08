@@ -5,7 +5,6 @@ from typing import List
 from pydantic import BaseModel, Field
 from langchain_community.document_loaders import SeleniumURLLoader
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 
 from opensearchpy import AWSV4SignerAuth
 from langchain_core.documents import Document
@@ -14,6 +13,7 @@ from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_opensearch import OpenSearchVectorSearch
 
 # TODO: Create separate indexes based on cognito user header value, make agent use that index somehow?
+REGION_NAME = os.environ["REGION_NAME"]
 
 class JobListing(BaseModel):
     title: str = Field(description="Name of the job position of this specific job listing.")
@@ -22,6 +22,15 @@ class JobListing(BaseModel):
     optional_skills: List[str] = Field(description="Skills that are optional but good to have.")
 
 def lambda_handler(event, context):
+    raw_headers = event.get("headers", {})
+    headers = {k.lower(): v for k, v in raw_headers.items()}
+    user_identity = headers.get("x-amzn-oidc-identity")
+    if not user_identity:
+        return {
+            "statusCode": 401,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": "Unauthorized: Missing identity header from ALB"})
+        }
     try:
         # Extract the URL from the Lambda event payload
         body = json.loads(event.get("body", "{}")) if "body" in event else event
@@ -53,9 +62,6 @@ def lambda_handler(event, context):
         )
         data = loader.load()
         web_content = "\n\n".join([doc.page_content for doc in data])
-
-        # # Fetch OpenAI API key from Secrets Manager
-        # api_key = get_openai_key()
 
         # # Initialize LLM with the injected API key
         # llm = ChatOpenAI(model="gpt-4o", api_key=api_key)
@@ -96,7 +102,7 @@ def lambda_handler(event, context):
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         docs = text_splitter.split_documents([doc])
 
-        bedrock_client = boto3.client("bedrock-runtime", region_name="us-east-1")
+        bedrock_client = boto3.client("bedrock-runtime", region_name=REGION_NAME)
         
         embeddings = BedrockEmbeddings(
             client=bedrock_client,
@@ -105,8 +111,7 @@ def lambda_handler(event, context):
 
         session = boto3.Session()
         credentials = session.get_credentials()
-        region = os.environ.get("AWS_REGION", "us-east-1")
-        auth = AWSV4SignerAuth(credentials, region, "aoss") 
+        auth = AWSV4SignerAuth(credentials, REGION_NAME, "aoss") 
 
         vector_store = OpenSearchVectorSearch.from_documents(
             documents=docs,
@@ -116,7 +121,7 @@ def lambda_handler(event, context):
             use_ssl=True,
             verify_certs=True,
             connection_class=OpenSearchVectorSearch.get_connection_class(),
-            index_name="job-listings"
+            index_name=f"{user_identity.lower()}-job-listings"
         )
 
         return {

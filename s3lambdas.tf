@@ -131,6 +131,7 @@ resource "aws_lambda_function" "web_scraper_lambda" {
     variables = {
       # SECRETS_MANAGER_NAME = aws_secretsmanager_secret.openai_secret.name
       OPENSEARCH_URL = module.opensearch.opensearch_url
+      REGION_NAME = data.aws_region.curr_region.region
     }
   }
 }

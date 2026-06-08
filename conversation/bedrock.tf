@@ -87,7 +87,6 @@ resource "aws_bedrockagent_agent" "resume-agent" {
 
   memory_configuration {
     enabled_memory_types = ["SESSION_SUMMARY"]
-
     session_summary_configuration {
       max_recent_sessions = 10
     }

@@ -30,7 +30,7 @@ def handler(event, context):
             "body": json.dumps({"error": "Unauthorized: Missing identity header from ALB"})
         }
 
-    key = f"{user_identity}/resumes/{time_formatted}.pdf"
+    key = f"resumes/{user_identity}/{time_formatted}.pdf"
 
     try:
         url = s3_client.generate_presigned_url('put_object', Params={

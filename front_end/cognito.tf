@@ -27,7 +27,7 @@ data "aws_iam_policy_document" "SNS_policy_doc" {
 }
 
 resource "aws_iam_policy" "SNS_policy" {
-  name = "sms-policy"
+  name = "sns-policy"
   description = "A policy to allow sns messages to be published"
   policy = data.aws_iam_policy_document.SNS_policy_doc.json
 }

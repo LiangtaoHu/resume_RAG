@@ -2,12 +2,3 @@
 provider "aws" {
   region = "us-east-1"
 }
-
-module "opensearch" {
-  source = "./conversation"
-  bucket_name = aws_s3_bucket.resume_bucket.id
-  lambda_role = aws_iam_role.lambda_role.arn
-  SNS_external_ID = var.SNS_external_ID
-  upload_resume_ARN = aws_lambda_function.lambda_s3_upload_function.arn
-  parse_listing_ARN = aws_lambda_function.lambda_s3_upload_function.arn
-}

@@ -1,9 +1,5 @@
 data "aws_region" "curr_region" {}
 
-resource "aws_s3_bucket" "resume_bucket" {
-    bucket = "liangtaohu-resume-bucket"
-}
-
 /* 
   Stage One:
   - Creating the Lambda Function that serves to scrape webpages, get the necessary information, then have them embedded.
@@ -24,9 +20,9 @@ resource "aws_ecr_repository" "resume_RAG_ecr_repo" {
 // that means the DockerFile, the code, or the function's requirements have changed and must be pushed towards AWS
 resource "null_resource" "Lambda_DockerFile_Update" {
   triggers = {
-    code_hash = filemd5("${path.module}/lambda/lambda_scraper.py")
-    requirements_hash = filemd5("${path.module}/lambda/requirements.txt")
-    docker_hash = filemd5("${path.module}/lambda/Dockerfile")
+    code_hash = filemd5("${path.module}/parse_listing/lambda_scraper.py")
+    requirements_hash = filemd5("${path.module}/parse_listing/requirements.txt")
+    docker_hash = filemd5("${path.module}/parse_listing/Dockerfile")
   }
 
   provisioner "local-exec" {
@@ -35,7 +31,7 @@ resource "null_resource" "Lambda_DockerFile_Update" {
       aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}
       
       # 2. Build the Docker image locally using the Dockerfile blueprint
-      docker build -t ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url} -f ${path.module}/lambda/Dockerfile ${path.module}/lambda/
+      docker build -t ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url} -f ${path.module}/parse_listing/Dockerfile ${path.module}/parse_listing/
       
       # 3. Push the image up to your AWS ECR Registry
       docker push ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}
@@ -142,8 +138,8 @@ resource "aws_iam_role_policy" "lambda_s3_upload_policy" {
 
 data "archive_file" "lambda_s3_upload_file" {
     type = "zip"
-    source_file = "${path.module}/lambda/s3_presigned_url.py"
-    output_path = "${path.module}/lambda/s3_presigned_url.zip"
+    source_file = "${path.module}/upload_resume/s3_presigned_url.py"
+    output_path = "${path.module}/upload_resume/s3_presigned_url.zip"
 }
 
 resource "aws_lambda_function" "lambda_s3_upload_function" {

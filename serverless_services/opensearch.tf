@@ -49,7 +49,7 @@ resource "aws_opensearchserverless_security_policy" "network" {
   ])
 }
 
-// Data Access Policy: Grant permissions to your Lambda function's IAM Role
+// Data Access Policy: Grant permissions to Lambda function's IAM Role
 resource "aws_opensearchserverless_access_policy" "data_access" {
   name        = "rag-data-access-policy"
   type        = "data"

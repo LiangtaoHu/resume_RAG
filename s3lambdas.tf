@@ -43,20 +43,6 @@ resource "null_resource" "Lambda_DockerFile_Update" {
   }
 }
 
-// We use AWS secret manager in order to save the OpenAI secret key so the lambda can call that instead of having it hard coded. 
-# resource "aws_secretsmanager_secret" "openai_secret" {
-#   name        = "lambda-openai-api-key"
-#   description = "OpenAI API Key for the Python scraper Lambda"
-# }
-
-# // Provide a value to the secret
-# resource "aws_secretsmanager_secret_version" "openai_secret_val" {
-#   secret_id     = aws_secretsmanager_secret.openai_secret.id
-#   secret_string = jsonencode({
-#     OPENAI_API_KEY = var.openai_api_key
-#   })
-# }
-
 // IAM Role creation for Lambda to assume
 resource "aws_iam_role" "lambda_role" {
   name = "lambda_role"
@@ -77,27 +63,6 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = aws_iam_role.lambda_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
-
-// Define policy document that allows the lambda function to only access the OpenAI secret key
-# data "aws_iam_policy_document" "lambda_secrets_policy" {
-#   statement {
-#     effect = "Allow"
-#     actions = ["secretsmanager:GetSecretValue"]
-#     resources = [aws_secretsmanager_secret.openai_secret.arn]
-#   }
-# }
-
-// Create IAM policy with that policy document
-# resource "aws_iam_policy" "lambda_secrets_policy" {
-#   name = "lambda-secrets-manager-read"
-#   policy = data.aws_iam_policy_document.lambda_secrets_policy.json
-# }
-
-// Attaches it to the role
-# resource "aws_iam_role_policy_attachment" "lambda_secretmanager_read" {
-#   role = aws_iam_role.lambda_role.arn
-#   policy_arn = aws_iam_policy.lambda_secrets_policy.name
-# }
 
 data "aws_iam_policy_document" "lambda_bedrock_policy" {
   statement {
@@ -129,7 +94,6 @@ resource "aws_lambda_function" "web_scraper_lambda" {
   memory_size   = 2048
   environment {
     variables = {
-      # SECRETS_MANAGER_NAME = aws_secretsmanager_secret.openai_secret.name
       OPENSEARCH_URL = module.opensearch.opensearch_url
       REGION_NAME = data.aws_region.curr_region.region
     }

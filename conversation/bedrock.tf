@@ -26,30 +26,30 @@ resource "aws_iam_role" "bedrock_kb_role" {
     assume_role_policy = data.aws_iam_policy_document.bedrock_kb_role_policy.json
 }
 
-resource "aws_bedrockagent_knowledge_base" "rag_kb" {
-    name = "resume-knowledge-base"
-    description = "This will connect all the files needed for resume optimization"
-    role_arn = aws_iam_role.bedrock_kb_role.arn
+# resource "aws_bedrockagent_knowledge_base" "rag_kb" {
+#     name = "resume-knowledge-base"
+#     description = "This will connect all the files needed for resume optimization"
+#     role_arn = aws_iam_role.bedrock_kb_role.arn
 
-    knowledge_base_configuration {
-      type = "VECTOR"
-      vector_knowledge_base_configuration {
-        embedding_model_arn = "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
-      }
-    }
-    storage_configuration {
-      type = "OPENSEARCH_SERVERLESS"
-      opensearch_serverless_configuration {
-        collection_arn = aws_opensearchserverless_collection.vector_db.arn
-        vector_index_name = "resume-rag-database"
-        field_mapping {
-          vector_field = "bedrock-vector"
-          text_field = "bedrock-text"
-          metadata_field = "bedrock-metadata"
-        }
-      }
-    }
-}
+#     knowledge_base_configuration {
+#       type = "VECTOR"
+#       vector_knowledge_base_configuration {
+#         embedding_model_arn = "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
+#       }
+#     }
+#     storage_configuration {
+#       type = "OPENSEARCH_SERVERLESS"
+#       opensearch_serverless_configuration {
+#         collection_arn = aws_opensearchserverless_collection.vector_db.arn
+#         vector_index_name = "resume-rag-database"
+#         field_mapping {
+#           vector_field = "bedrock-vector"
+#           text_field = "bedrock-text"
+#           metadata_field = "bedrock-metadata"
+#         }
+#       }
+#     }
+# }
 
 data "aws_iam_policy_document" "agent_trust" {
     statement {

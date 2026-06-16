@@ -4,7 +4,7 @@ import boto3
 from datetime import datetime
 from botocore.config import Config
 
-# TODO: Get rid of spoofing possiblity by validating JWT x-amzn-oidc-data header
+# Should have idtoken to represent identity already. Plus, its already authenticated.
 
 REGION_NAME = os.environ['REGION_NAME']
 EXPIRATION_TIME = os.environ['EXPIRATION_TIME']
@@ -21,16 +21,27 @@ def handler(event, context):
 
     raw_headers = event.get("headers", {})
     headers = {k.lower(): v for k, v in raw_headers.items()}
-    user_identity = headers.get("x-amzn-oidc-identity")
 
+    cookies = {}
+    if "cookie" in headers:
+        # Loop through all the cookies
+        for cookie in headers["cookie"]:
+            # We are mainly interested in the value as the key for each is just "cookie"
+            # The value can be multi-cookie per actual cookie, with a separator of ";"
+            cookie_string = cookie.get("value", "")
+            for cookie_instance in cookie_string.split(";"):
+                # We split again on the equals sign
+                key, value = cookie_instance.split("=", 1)
+                cookies[key.strip()] = value.strip()
+    user_identity = cookies.get("idToken")
     if not user_identity:
         return {
             "statusCode": 401,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": "Unauthorized: Missing identity header from ALB"})
+            "body": json.dumps({"error": "Unauthorized: Missing idToken"})
         }
 
-    key = f"resumes/{user_identity}/{time_formatted}.pdf"
+    key = f"{user_identity.lower()}/{time_formatted}.pdf"
 
     try:
         url = s3_client.generate_presigned_url('put_object', Params={

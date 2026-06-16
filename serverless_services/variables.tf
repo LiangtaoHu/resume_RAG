@@ -1,25 +1,9 @@
-variable "bucket_name" {
-  description = "S3 bucket used to store resumes. Created in s3lambdas.tf"
-  type        = string
-}
-
-variable "lambda_role" {
-  description = "Lambda role for lambda function defined in main.tf"
-  type        = string
-}
-
-variable "upload_resume_ARN" {
-  description = "Lambda function ARN responsible for uploading resumes"
+variable "parse_listing_role_ARN" {
+  description = "Parsing listings Lambda Function's Role's ARN"
   type        = string
 }
 
 variable "parse_listing_ARN" {
-  description = "Lambda function ARN responsible for parsing job listings"
-  type        = string
-}
-
-variable "SNS_external_ID" {
-    type = string
-    description = "External ID for SNS messaging in Cognito"
-    sensitive = true
+  description = "Parsing listings Lambda Function ARN"
+  type = string
 }

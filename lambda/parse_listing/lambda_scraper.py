@@ -12,11 +12,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
 from langchain_opensearch import OpenSearchVectorSearch
 
-# TODO: Create separate indexes based on cognito user header value, make agent use that index somehow?
+# We'll have one collection for the database with one index. Index should have metadata describing the title, user, company
 REGION_NAME = os.environ["REGION_NAME"]
+OPENSEARCH_URL = os.environ.get("OPENSEARCH_URL")
 
 class JobListing(BaseModel):
-    title: str = Field(description="Name of the job position of this specific job listing.")
+    position: str = Field(description="Name of the job position of this specific job listing.")
     company: str = Field(description="The specific company this job listing was made by.")
     requirements: List[str] = Field(description="The specific minimum requirements for this job.")
     optional_skills: List[str] = Field(description="Skills that are optional but good to have.")
@@ -24,7 +25,18 @@ class JobListing(BaseModel):
 def lambda_handler(event, context):
     raw_headers = event.get("headers", {})
     headers = {k.lower(): v for k, v in raw_headers.items()}
-    user_identity = headers.get("x-amzn-oidc-identity")
+    cookies = {}
+    if "cookie" in headers:
+        # Loop through all the cookies
+        for cookie in headers["cookie"]:
+            # We are mainly interested in the value as the key for each is just "cookie"
+            # The value can be multi-cookie per actual cookie, with a separator of ";"
+            cookie_string = cookie.get("value", "")
+            for cookie_instance in cookie_string.split(";"):
+                # We split again on the equals sign
+                key, value = cookie_instance.split("=", 1)
+                cookies[key.strip()] = value.strip()
+    user_identity = cookies.get("idToken")
     if not user_identity:
         return {
             "statusCode": 401,
@@ -35,13 +47,11 @@ def lambda_handler(event, context):
         # Extract the URL from the Lambda event payload
         body = json.loads(event.get("body", "{}")) if "body" in event else event
         url = body.get("url")
-        
         if not url:
             return {
                 "statusCode": 400,
                 "body": json.dumps({"error": "Missing 'url' parameter in the request payload."})
             }
-
         # Load web content using Selenium with custom headless cloud arguments
         loader = SeleniumURLLoader(
             urls=[url], 
@@ -84,22 +94,25 @@ def lambda_handler(event, context):
         # Convert the structured Pydantic object back into a clean string for vectorization
         job_text_content = f"""
         Company: {response.company}
-        Position: {response.title}
+        Position: {response.position}
         Requirements: {", ".join(response.requirements)}
         Optional Skills: {", ".join(response.optional_skills)}
         """
-
+        # Define metadata here
         doc = Document(
             page_content=job_text_content,
             metadata={
-                "source_url": url,
+                "user-id": user_identity,
+                "source-url": url,
                 "company": response.company,
-                "title": response.title
+                "position": response.position,
+                "title": f"{response.company}-{response.position}"
             }
         )
 
         # 2. Chunk the document
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        # Metadata is preserved upon chunking as well
         docs = text_splitter.split_documents([doc])
 
         bedrock_client = boto3.client("bedrock-runtime", region_name=REGION_NAME)
@@ -116,7 +129,7 @@ def lambda_handler(event, context):
         vector_store = OpenSearchVectorSearch.from_documents(
             documents=docs,
             embedding=embeddings,
-            opensearch_url=os.environ.get("OPENSEARCH_URL"),
+            opensearch_url=OPENSEARCH_URL,
             http_auth=auth,
             use_ssl=True,
             verify_certs=True,

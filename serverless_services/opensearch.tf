@@ -1,17 +1,16 @@
 // OpenSearch Serverless Collection as Vector Database
 resource "aws_opensearchserverless_collection" "vector_db" {
   name             = "resume-rag-database"
-  type             = "VECTORSEARCH" # Crucial: Allocates specific vector indexing infrastructure
+  type             = "VECTORSEARCH"
   description      = "Vector store for job listing contexts and resumes"
 }
 
-// OpenSearch Security Encryption Policy
+// Encryption policy, just defines that the resume-rag-database will be encrypted with AWS owned keys
 resource "aws_opensearchserverless_security_policy" "encryption" {
   name        = "rag-encryption-policy"
   type        = "encryption"
   description = "Encryption policy for vector search collection"
-  
-  # AWS manages encryption using their default keys
+
   policy = jsonencode({
     Rules = [{
       ResourceType = "collection"
@@ -21,15 +20,16 @@ resource "aws_opensearchserverless_security_policy" "encryption" {
   })
 }
 
-// OpenSearch Network Access Policy (Public endpoint configuration)
+// Network policy
+// It can be accessed from over the internet? or privately? In this case, we choose over the Internet
 resource "aws_opensearchserverless_security_policy" "network" {
   name        = "rag-network-policy"
   type        = "network"
-  description = "public access policy for vector collection endpoints"
+  description = "Public access policy for vector collection endpoints"
   
   policy = jsonencode([
     {
-      Description = "public access policy for vector collection endpoints"
+      Description = "Public access policy for vector collection endpoints"
       Rules = [
         {
           ResourceType = "collection"
@@ -49,11 +49,13 @@ resource "aws_opensearchserverless_security_policy" "network" {
   ])
 }
 
-// Data Access Policy: Grant permissions to Lambda function's IAM Role
+// Data Access Policy
+// Now that we've defined we can access it over the Internet, who can access it?
+// We would want the one Lambda function for parsing job listings and the Bedrock agent
 resource "aws_opensearchserverless_access_policy" "data_access" {
   name        = "rag-data-access-policy"
   type        = "data"
-  description = "Grants read/write permissions to Lambda execution role and Bedrock"
+  description = "Grants read/write permissions to Lambda execution role and the master Bedrock agent"
   
   policy = jsonencode([
     {
@@ -77,6 +79,6 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
         "aoss:DescribeCollectionItems"
       ]
     }]
-    Principal = [var.lambda_role, aws_iam_role.bedrock_kb_role.arn]
+    Principal = [var.parse_listing_role_ARN, aws_iam_role.bedrock_kb_role.ARN]
   }])
 }

@@ -5,24 +5,17 @@ import base64
 import urllib
 import config
 from jwt.exceptions import ExpiredSignatureError
-import config
 '''
 This describes a Lambda@Edge function that checks the users request before allowing them to access Lambda origins.
 How this works is the user will have cookies which will have information that describe if they're logged in or not.
 If they're properly logged in, we will let through the request. If they aren't we redirect them to the Cognito Hosted UI.
 '''
 
-def get_public_jwks():
-    jwk_url = f"https://cognito-idp.{config.REGION_NAME}.amazonaws.com/{config.COG_USER_POOL_ID}/.well-known/jwks.json"
-    req = urllib.request.Request(jwk_url)
-    with urllib.request.urlopen(req) as response:
-        return json.loads(response.read().decode('utf-8'))
+jwk_url = f"https://cognito-idp.{config.REGION_NAME}.amazonaws.com/{config.COG_USER_POOL_ID}/.well-known/jwks.json"    
+jwk_client = jwt.PyJWKClient(jwk_url)
 
 def validate_id_token(idToken):
     try:
-        res = get_public_jwks()
-        jwk_client = jwt.PyJWKClient(None)
-        jwk_client.jwks = jwt.api_jwk.PyJWKSet.from_dict(res)
         signing_key = jwk_client.get_signing_key_from_jwt(idToken)
         expected_issuer = f"https://cognito-idp.{config.REGION_NAME}.amazonaws.com/{config.COG_USER_POOL_ID}"
         payload = jwt.decode(
@@ -33,15 +26,17 @@ def validate_id_token(idToken):
             issuer=expected_issuer,
             options={"require": ["exp", "iss", "aud"]}
         )
-        if payload.get("token_use") != "id":
-            raise jwt.InvalidTokenError("Token is an Access Token, not an ID Token.")
-        return payload
-    except jwt.ExpiredSignatureError as e:
+        if payload.get("token_use") == "id":
+            return payload
+        else:
+            # We have an access token. Meaning they are technically the right person but we don't have their user-identity
+            raise jwt.ExpiredSignatureError
+    except jwt.ExpiredSignatureError:
         raise jwt.ExpiredSignatureError
-    except Exception as e:
+    except Exception:
         raise Exception
 
-def refresh_tokens(refresh_token, domain_name):
+def refresh_tokens(refresh_token, domain_name, requested_uri):
     token_url = f"{config.COGNITO_DOMAIN}/oauth2/token"
     payload = {
         "grant_type": "authorization_code",
@@ -62,8 +57,8 @@ def refresh_tokens(refresh_token, domain_name):
         refreshToken = tokens["refresh_token"] # TODO: Turn on refresh token rotation
         return_pathway = f"https://{domain_name}"
         # If we are in any pathway that the actual browser should call which is /api/v1/*, we should return to their respective landing pages
-        if "/api/v1" in original_uri:
-            original_uri = original_uri.split("/api/v1", 1)[1]
+        if "/api/v1" in requested_uri:
+            original_uri = requested_uri.split("/api/v1", 1)[1]
             return_pathway = return_pathway + original_uri
 
         return {
@@ -159,7 +154,7 @@ def lambda_handler(event, context):
     except Exception as e:
         redirect_url = ""
         if isinstance(e, ExpiredSignatureError) and refreshToken:
-            refresh_tokens(refreshToken)
+            refresh_tokens(refreshToken, domain_name, requested_uri)
         else:
             # Either tampered with or there is just no information, redirect to Hosted UI to sign in or create an account
             redirect_url, nonce = build_cognito_url(requested_uri, domain_name)

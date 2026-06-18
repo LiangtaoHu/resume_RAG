@@ -22,7 +22,6 @@ locals {
 
 // TODO: Create ACM Certificate 
 data "aws_acm_certificate" "issued_cert" {
-    region = "us-east-1"
     domain = "*.${local.my_domain}"
     statuses = ["ISSUED"]
 }
@@ -109,7 +108,8 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
       cached_methods = ["GET", "HEAD"]
       target_origin_id = local.s3_origin_id
       viewer_protocol_policy = "redirect-to-https"
-      // TODO: Forward Values?
+      // TODO: ttl?
+      origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewer Except Host header
     }
     // TODO: Ordered Cache Behavior for Chatting
 
@@ -119,12 +119,14 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         viewer_protocol_policy = "redirect-to-https"
         cached_methods = ["GET", "HEAD"]
         allowed_methods = ["GET", "HEAD", "OPTIONS"]
-        path_pattern = "/upload_resume"
+        path_pattern = "/api/v1/upload_resume"
         // Could we configure this to the length of time the presigned URL is valid? In order to prevent mass creation.
-        min_ttl = 0
-        default_ttl = 0
-        max_ttl = 0
-        //TODO: Forward Values?
+        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
+        origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewer Except Host header
+        lambda_function_association {
+          event_type = "viewer-request"
+          lambda_arn = "${var.check_auth_ARN}"
+        }
     }
 
     // Ordered Cache Behavior for parsing listings
@@ -133,11 +135,27 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         viewer_protocol_policy = "redirect-to-https"
         cached_methods = ["GET", "HEAD"]
         allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
-        path_pattern = "/parse_listing"
-        min_ttl = 0
-        default_ttl = 0
-        max_ttl = 0
-        //TODO: Forward values?
+        path_pattern = "/api/v1/parse_listing"
+        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
+        origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"   // AllViewer
+        lambda_function_association {
+          event_type = "viewer-request"
+          lambda_arn = var.check_auth_ARN
+        }
+    }
+
+    ordered_cache_behavior {
+        target_origin_id = local.s3_origin_id
+        viewer_protocol_policy = "redirect-to-https"
+        cached_methods = ["GET", "HEAD"]
+        allowed_methods = ["GET", "HEAD"]
+        path_pattern = "/callback"
+        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
+        origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"   // AllViewer
+        lambda_function_association {
+          event_type = "viewer-request"
+          lambda_arn = var.parse_auth_ARN
+        }
     }
 
     restrictions {

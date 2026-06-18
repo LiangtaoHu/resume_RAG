@@ -5,13 +5,41 @@ import base64
 import urllib
 import config
 from jwt.exceptions import ExpiredSignatureError
+import config
 '''
 This describes a Lambda@Edge function that checks the users request before allowing them to access Lambda origins.
 How this works is the user will have cookies which will have information that describe if they're logged in or not.
 If they're properly logged in, we will let through the request. If they aren't we redirect them to the Cognito Hosted UI.
 '''
-def validate_id_token(idToken):
 
+def get_public_jwks():
+    jwk_url = f"https://cognito-idp.{config.REGION_NAME}.amazonaws.com/{config.COG_USER_POOL_ID}/.well-known/jwks.json"
+    req = urllib.request.Request(jwk_url)
+    with urllib.request.urlopen(req) as response:
+        return json.loads(response.read().decode('utf-8'))
+
+def validate_id_token(idToken):
+    try:
+        res = get_public_jwks()
+        jwk_client = jwt.PyJWKClient(None)
+        jwk_client.jwks = jwt.api_jwk.PyJWKSet.from_dict(res)
+        signing_key = jwk_client.get_signing_key_from_jwt(idToken)
+        expected_issuer = f"https://cognito-idp.{config.REGION_NAME}.amazonaws.com/{config.COG_USER_POOL_ID}"
+        payload = jwt.decode(
+            idToken,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=config.COG_CLIENT_ID,
+            issuer=expected_issuer,
+            options={"require": ["exp", "iss", "aud"]}
+        )
+        if payload.get("token_use") != "id":
+            raise jwt.InvalidTokenError("Token is an Access Token, not an ID Token.")
+        return payload
+    except jwt.ExpiredSignatureError as e:
+        raise jwt.ExpiredSignatureError
+    except Exception as e:
+        raise Exception
 
 def refresh_tokens(refresh_token, domain_name):
     token_url = f"{config.COGNITO_DOMAIN}/oauth2/token"

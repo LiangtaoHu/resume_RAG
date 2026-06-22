@@ -9,7 +9,7 @@ data "aws_region" "curr_region" {}
 */
 
 resource "aws_ecr_repository" "resume_RAG_ecr_repo" {
-  name = "Resume RAG Images"
+  name = "resume-rag-images"
   image_scanning_configuration {
     scan_on_push = true
   }
@@ -31,10 +31,10 @@ resource "null_resource" "Lambda_DockerFile_Update" {
       aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}
       
       # 2. Build the Docker image locally using the Dockerfile blueprint
-      docker build -t ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url} -f ${path.module}/parse_listing/Dockerfile ${path.module}/parse_listing/
+      docker build -t ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest -f ${path.module}/parse_listing/Dockerfile ${path.module}/parse_listing/
       
       # 3. Push the image up to your AWS ECR Registry
-      docker push ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}
+      docker push ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest
     EOF
   }
 }
@@ -74,8 +74,40 @@ resource "aws_iam_policy" "lambda_bedrock_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_bedrock_policy" {
-  role = aws_iam_role.lambda_role.arn
-  policy_arn =  aws_iam_policy.lambda_bedrock_policy.name
+  role = aws_iam_role.lambda_role.name
+  policy_arn =  aws_iam_policy.lambda_bedrock_policy.arn
+}
+
+data "aws_iam_policy_document" "lambda_dynamodb_policy" {
+  statement {
+    effect = "Allow"
+    actions = ["dynamodb:GetItem", "dynamodb:PutItem"]
+    resources = [var.dynamo_arn]
+  }
+}
+
+resource "aws_iam_policy" "lambda_dynamodb_policy" {
+  name = "lambda-dynamodb-get-and-put-item"
+  policy = data.aws_iam_policy_document.lambda_dynamodb_policy.json
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_dynamodb_policy" {
+  role = aws_iam_role.lambda_role.name
+  policy_arn = aws_iam_policy.lambda_dynamodb_policy.arn
+}
+
+resource "aws_iam_role_policy" "lambda_opensearch_policy" {
+  name = "lambda-opensearch-serverless-access"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["aoss:APIAccessAll"]
+      Resource = [module.opensearch.opensearch_arn]
+    }]
+  })
 }
 
 // Creating the actual Lambda function now, or defining it
@@ -94,21 +126,6 @@ resource "aws_lambda_function" "web_scraper_lambda" {
       REGION_NAME = data.aws_region.curr_region.region
     }
   }
-}
-
-// Grant your Lambda base IAM role structural network connectivity rights
-resource "aws_iam_role_policy" "lambda_opensearch_policy" {
-  name = "lambda-opensearch-serverless-access"
-  role = aws_iam_role.lambda_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["aoss:APIAccessAll"]
-      Resource = [module.opensearch.opensearch_arn]
-    }]
-  })
 }
 
 resource "aws_iam_role" "lambda_s3_upload_role" {
@@ -131,9 +148,14 @@ resource "aws_iam_role_policy" "lambda_s3_upload_policy" {
         Statement = [{
             Action = ["s3:PutObject"]
             Effect = "Allow"
-            Resource = aws_s3_bucket.resume_bucket.arn
+            Resource = "${aws_s3_bucket.resume_bucket.arn}/*"
         }]
     })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_dynamodb_policy_upload" {
+  role = aws_iam_role.lambda_s3_upload_role.name
+  policy_arn = aws_iam_policy.lambda_dynamodb_policy.arn
 }
 
 data "archive_file" "lambda_s3_upload_file" {
@@ -152,7 +174,7 @@ resource "aws_lambda_function" "lambda_s3_upload_function" {
     environment {
       variables = {
         RESUME_BUCKET = aws_s3_bucket.resume_bucket.id,
-        EXPIRATION_TIME = var.lambda_region,
+        EXPIRATION_TIME = var.expiration_time,
         REGION_NAME = data.aws_region.curr_region.region
       }
     }

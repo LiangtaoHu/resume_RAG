@@ -3,12 +3,6 @@ import json
 import boto3
 import awslambda
 
-# TODO: Fix other lambda functions, esp the parsing listing one to give a metadata tag of the user-id
-# TODO: Need to add measures to ensure correct user-id, session-id, etc.
-# TODO: Convert into Node.JS to use response streaming
-# TODO: Add a way for bedrock to find S3 resumes and generate them
-# TODO: Add a way for bedrock to find the correct vectors? Maybe make user specify which job?
-
 REGION_NAME = os.environ['REGION_NAME']
 RESUME_BUCKET = os.environ['RESUME_BUCKET']
 AGENT_ID = os.environ["AGENT_ID"]
@@ -24,22 +18,41 @@ bedrock_client.associate_agent_knowledge_base(
     knowledgeBaseId = KB_ID,
 )
 '''
-@awslambda.stream_handler
-def lambda_handler(event, context, response_stream):
+def lambda_handler(event, context):
     '''
     WorkFlow:
         1. Authentication should've already occured. So our user-id is a valid user-id
-        2. Look at the session-id. If the session-id is valid, load up that conversation. If not present/valid, create a new session
-        3. Send the user message
+        2. Generate a valid session id OR if session id is already specified in header use that
+        3a. IF session id already exists, just send user message to that session-id as conversation history is stored.
+        3b. IF session id DOESNT exist, we must send resume PDF with prompt and specified Job Listing to the agent.
         4. Return agent message
     '''
     raw_headers = event.get("headers", {})
     headers = {k.lower(): v for k, v in raw_headers.items()}
-    body = event.get("body", {})
+    # Step 1
+    cookies = {}
+    if "cookie" in headers:
+        # Loop through all the cookies
+        for cookie in headers["cookie"]:
+            # We are mainly interested in the value as the key for each is just "cookie"
+            # The value can be multi-cookie per actual cookie, with a separator of ";"
+            cookie_string = cookie.get("value", "")
+            for cookie_instance in cookie_string.split(";"):
+                # We split again on the equals sign
+                if "=" in cookie_instance:
+                    key, value = cookie_instance.split("=", 1)
+                    cookies[key.strip()] = value.strip()
+    user_identity = cookies.get("idToken")
+    if not user_identity:
+        return {
+            "statusCode": 401,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": "Unauthorized: Missing idToken"})
+        }
+    # Step 2
+    session_id = headers.get("session_id", "")
+    
 
-    session_id = headers.get("session-id")
-    user_id = headers.get("user-id")
-    prompt = body.get("user-message")
 
     response = bedrock_client.invoke_agent(
         agentAliasID = "",
@@ -65,9 +78,3 @@ def lambda_handler(event, context, response_stream):
             }
         }
     )
-
-    response_stream.write_content_type('text/plain')
-    for event_chunk in response.get('completion', []):
-        if 'chunk' in event_chunk:
-            text_token = event_chunk['chunk']['bytes'].decode('utf-8')
-            response_stream.write(text_token)

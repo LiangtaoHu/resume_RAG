@@ -22,6 +22,9 @@ class JobListing(BaseModel):
     requirements: List[str] = Field(description="The specific minimum requirements for this job.")
     optional_skills: List[str] = Field(description="Skills that are optional but good to have.")
 
+dynamo_client = boto3.resource("dynamodb", region_name=REGION_NAME)
+table = dynamo_client.Table("res-optimizer-user-data")
+
 def lambda_handler(event, context):
     raw_headers = event.get("headers", {})
     headers = {k.lower(): v for k, v in raw_headers.items()}
@@ -103,7 +106,7 @@ def lambda_handler(event, context):
             page_content=job_text_content,
             metadata={
                 "user-id": user_identity,
-                "source-url": url,
+                "url": url,
                 "company": response.company,
                 "position": response.position,
                 "title": f"{response.company}-{response.position}"
@@ -135,6 +138,17 @@ def lambda_handler(event, context):
             verify_certs=True,
             connection_class=OpenSearchVectorSearch.get_connection_class(),
             index_name=f"{user_identity.lower()}-job-listings"
+        )
+
+        # Save to DynamoDB
+        table.put_item(
+            Item = {
+                'HK': user_identity,
+                'SK': f"JOB-{response.company}-{response.position}",
+                'company': response.company,
+                'position': response.position,
+                'url': url
+            }
         )
 
         return {

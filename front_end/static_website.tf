@@ -1,7 +1,4 @@
 // Static Hosting + CloudFront distribution
-// TODO: CloudFront Lambda vs. Lambda@Edge vs. Lambda Origin
-// TODO: Why do we use a custom OAC instead of just the OAC object? What is the difference between all three?
-// What does OAC even do with lambda
 
 resource "aws_lambda_function_url" "upload_resume_url" {
     authorization_type = "AWS_IAM"
@@ -98,6 +95,24 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
     #     origin_protocol_policy = "https-only"
     #     origin_ssl_protocols = ["TLSv1.2"]
     #   }
+    }
+    // Message origin
+    origin {
+        domain_name =
+        origin_id =
+        origin_access_control_id = 
+    }
+    // List Resumes Origin
+    origin {
+        domain_name =
+        origin_id =
+        origin_access_control_id = 
+    }
+    // List Parsed Job Listings Origin
+    origin {
+        domain_name =
+        origin_id =
+        origin_access_control_id = 
     }
 
     enabled = true

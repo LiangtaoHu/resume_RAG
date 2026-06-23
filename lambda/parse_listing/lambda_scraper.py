@@ -143,8 +143,8 @@ def lambda_handler(event, context):
         # Save to DynamoDB
         table.put_item(
             Item = {
-                'HK': user_identity,
-                'SK': f"JOB-{response.company}-{response.position}",
+                'HK': "USER#" + user_identity,
+                'SK': f"JOB#{response.company}-{response.position}",
                 'company': response.company,
                 'position': response.position,
                 'url': url

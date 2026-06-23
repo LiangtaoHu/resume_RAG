@@ -19,10 +19,11 @@ resource "aws_secretsmanager_secret_version" "dynamodb_password" {
 /*
 DynamoTable Attributes:
 HK takes the form of USER#<ID>
-SK takes the form of RESUME#<ID>, LINK, or CONV#<ID>
-If we're doing USER & RESUME, the additional attributes are S3Location, CachedText
+SK takes the form of RESUME#<ID>, LINK, or CONV#<ID>, JOB#<TITLE>
+If we're doing USER & RESUME, the additional attributes are S3Location, cachedText
 If we're doing USER & LINK, the additional attributes are url, fields, status, and expiresIn
 If we're doing USER & CONV, the additional attributes are resumeID, ChatHistory
+If we're doing USER & JOB, the additional attributes are company, position, url
 
 ChatHistory takes the form of a dictionary of messages
 Messages have the following form:

@@ -8,6 +8,11 @@ variable "dynamo_arn" {
   type = string
 }
 
+variable "dynamo_table" {
+  description = "Name of the DynamoDB table used to keep track of user data"
+  type = string
+}
+
 variable "expiration_time" {
   description = "S3 presigned URL expiration time"
   type = number

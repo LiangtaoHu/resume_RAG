@@ -30,14 +30,14 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamodb_policy_upload" {
 
 data "archive_file" "alert_dynamo_trigger_file" {
     type = "zip"
-    source_file = "s3_upload_trigger.py"
-    output_path = "s3_upload_trigger.zip"
+    source_file = "alert_dynamo_link.py"
+    output_path = "alert_dynamo_link.zip"
 }
 
-resource "aws_lambda_function" "alert_dynamo_trigger" {
-  function_name    = "alert-dynamo-trigger"
+resource "aws_lambda_function" "alert_dynamo_link_trigger" {
+  function_name    = "alert-dynamo-link-trigger"
   role             = aws_iam_role.lambda_s3_trigger_role
-  handler          = "s3_upload_trigger.handler"
+  handler          = "alert_dynamo_link.handler"
   filename         = data.archive_file.alert_dynamo_trigger_file.output_path
   runtime = "python3.9"
   source_code_hash = data.archive_file.alert_dynamo_trigger_file.output_base64sha256
@@ -49,7 +49,7 @@ resource "aws_lambda_function" "alert_dynamo_trigger" {
   }
 }
 
-resource "aws_s3_bucket_notification" "aws_lambda_trigger" {
+resource "aws_s3_bucket_notification" "aws_alert_dynamo_link" {
     bucket = var.resume_bucket
     lambda_function {
       lambda_function_arn = aws_lambda_function.alert_dynamo_trigger.arn

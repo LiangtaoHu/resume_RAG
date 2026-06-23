@@ -48,8 +48,8 @@ def handler(event, context):
     try:
         response = table.get_item(
             Key = {
-                'HK': user_identity,
-                'SK': "Link"
+                'HK': "USER#" + user_identity,
+                'SK': "LINK"
             }
         )
         item = response.get("Item")
@@ -105,8 +105,8 @@ def handler(event, context):
 
         table.put_item(
             Item = {
-                'HK': user_identity,
-                'SK': "Link",
+                'HK': "USER#" + user_identity,
+                'SK': "LINK",
                 "url": post.get("url"),
                 "fields": post.get("fields"),
                 "status": "PENDING",

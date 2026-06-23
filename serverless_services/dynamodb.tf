@@ -16,30 +16,31 @@ resource "aws_secretsmanager_secret_version" "dynamodb_password" {
     secret_string = var.dynamo_password
 }
 
-
 /*
-us-east-1 DynamoDB table that keeps track of the listings the user has parsed as well as the active S3 links so far
+DynamoTable Attributes:
+HK takes the form of USER#<ID>
+SK takes the form of RESUME#<ID>, LINK, or CONV#<ID>
+If we're doing USER & RESUME, the additional attributes are S3Location, CachedText
+If we're doing USER & LINK, the additional attributes are url, fields, status, and expiresIn
+If we're doing USER & CONV, the additional attributes are resumeID, ChatHistory
+
+ChatHistory takes the form of a dictionary of messages
+Messages have the following form:
+    {
+        "role": "User" OR "Agent"
+        "message": "some_text"
+        "timestamp": "some_time"
+        "generated_file" (OPTIONAL ONLY IF AGENT MESSAGE): {
+            "InternalID":
+        }
+    }
 */
 resource "aws_dynamodb_table" "res_opt_dynamodb_table" {
     name = "res-optimizer-user-data"
     billing_mode = "PAY_PER_REQUEST"
     hash_key = "HK"
     range_key = "SK"
-    /*
-    {
-        HK: User-1
-        SK: JOB#xxxx
-        Company: xxxx
-        Position: xxxx
-    }
-    OR
-    {
-        HK: User-1
-        SK: LINK
-        url: xxxx
-        expiresIn:
-    }
-    */
+
     attribute {
         name = "HK"
         type = "S"

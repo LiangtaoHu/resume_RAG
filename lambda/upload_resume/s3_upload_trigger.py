@@ -27,8 +27,8 @@ def handler(event, context):
 
     response = table.get_item(
         Key = {
-            'HK': user_identity,
-            'SK': "Link"
+            'HK': "USER#" + user_identity,
+            'SK': "LINK"
         }
     )
     item = response.get("Item")
@@ -40,8 +40,8 @@ def handler(event, context):
         if item.get("status") == "PENDING" and item.get("expiresIn") > event_datetime:
             table.update_item(
                 Key = {
-                    'HK': user_identity,
-                    'SK': "Link"
+                    'HK': "USER#" + user_identity,
+                    'SK': "LINK"
                 },
                 UpdateExpression='SET #s = :val',
                 ExpressionAttributeNames={'#s': "status"},

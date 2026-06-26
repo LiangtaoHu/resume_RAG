@@ -1,4 +1,5 @@
 import os
+import json
 import boto3
 import urllib
 import pymupdf4llm
@@ -19,8 +20,18 @@ dynamo_table = dynamo_client.Table(DYNAMO_DB_TABLE)
 def handler(event, context):
     bucket = event['Records'][0]['s3']['bucket']['name']
     key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
-    file_name = key.split("/")[-1]
+    file_name, user_identity = key.split("/")[-1], key.split("/")[0]
     local_path = '/tmp/' + file_name 
-    s3_client.download_file(bucket, key, local_path)
     
-    json_format = pymupdf4llm.to_json(local_path)
+    s3_client.download_file(bucket, key, local_path)
+    md = pymupdf4llm.to_markdown(local_path)
+    dynamo_table.put_item(
+        Item = {
+            'HK': f'USER#{user_identity}',
+            'SK': f'RESUME#{file_name}',
+            'S3Location': key,
+            'cachedText': md
+        }
+    )
+    if os.path.exists(local_path):
+        os.remove(local_path)

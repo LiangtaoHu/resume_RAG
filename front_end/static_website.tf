@@ -10,11 +10,24 @@ resource "aws_lambda_function_url" "parse_listing_url" {
     function_name = var.parse_listing_ARN
 }
 
+resource "aws_lambda_function_url" "message_url" {
+    authorization_type = "AWS_IAM"
+    function_name = var.message_ARN
+}
+
+resource "aws_lambda_function_url" "view_data_url" {
+    authorization_type = "AWS_IAM"
+    function_name = var.view_data_ARN
+}
+
 locals {
     s3_origin_id = "static-s3-origin"
     upload_resume_id = "lambda-upload-url"
     parse_listing_id = "lambda-parse-listing"
+    message_id = "lambda-message-bedrock"
+    view_data_id = "lambda-view-user-data"
     my_domain = "customdomain.com"
+
 }
 
 // TODO: Create ACM Certificate 
@@ -76,57 +89,28 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
       domain_name = replace(replace(aws_lambda_function_url.upload_resume_url.function_url, "https://", ""), "/", "")
       origin_id = local.upload_resume_id
       origin_access_control_id = aws_cloudfront_origin_access_control.lambda_oac.id
-
-    #   custom_origin_config {
-    #     https_port = 443
-    #     http_port = 80
-    #     origin_protocol_policy = "https-only"
-    #     origin_ssl_protocols = ["TLSv1.2"]
-    #   }
     }
     // Parse Listing origin
     origin {
       domain_name = replace(replace(aws_lambda_function_url.parse_listing_url.function_url, "https://", ""), "/", "")
       origin_id = local.parse_listing_id
       origin_access_control_id = aws_cloudfront_origin_access_control.lambda_oac.id
-    #   custom_origin_config {
-    #     https_port = 443
-    #     http_port = 80
-    #     origin_protocol_policy = "https-only"
-    #     origin_ssl_protocols = ["TLSv1.2"]
-    #   }
     }
     // Message origin
     origin {
-        domain_name =
-        origin_id =
-        origin_access_control_id = 
+        domain_name = replace(replace(aws_lambda_function_url.message_url.function_url, "https://", ""), "/", "")
+        origin_id = local.message_id
+        origin_access_control_id = aws_cloudfront_origin_access_control.lambda_oac.id
     }
-    // List Resumes Origin
+    // view_data origin
     origin {
-        domain_name =
-        origin_id =
-        origin_access_control_id = 
-    }
-    // List Parsed Job Listings Origin
-    origin {
-        domain_name =
-        origin_id =
-        origin_access_control_id = 
+        domain_name = replace(replace(aws_lambda_function_url.view_data_url.function_url, "https://", ""), "/", "")
+        origin_id = local.view_data_id
+        origin_access_control_id = aws_cloudfront_origin_access_control.lambda_oac.id
     }
 
     enabled = true
     default_root_object = "index.html"
-
-    default_cache_behavior {
-      allowed_methods = ["GET", "HEAD", "OPTIONS"]
-      cached_methods = ["GET", "HEAD"]
-      target_origin_id = local.s3_origin_id
-      viewer_protocol_policy = "redirect-to-https"
-      // TODO: ttl?
-      origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewer Except Host header
-    }
-    // TODO: Ordered Cache Behavior for Chatting
 
     // Ordered Cache Behavior for uploading resume
     ordered_cache_behavior {
@@ -152,7 +136,35 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
         path_pattern = "/api/v1/parse_listing"
         cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
-        origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"   // AllViewer
+        origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewer
+        lambda_function_association {
+          event_type = "viewer-request"
+          lambda_arn = var.check_auth_ARN
+        }
+    }
+
+    ordered_cache_behavior {
+        target_origin_id = local.message_id 
+        viewer_protocol_policy = "redirect-to-https"
+        cached_methods = ["GET", "HEAD"]
+        allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+        path_pattern = "/api/v1/message"
+        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
+        origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewerExceptHost
+        lambda_function_association {
+          event_type = "viewer-request"
+          lambda_arn = var.check_auth_ARN
+        }
+    }
+
+    ordered_cache_behavior {
+        target_origin_id = local.view_data_id 
+        viewer_protocol_policy = "redirect-to-https"
+        cached_methods = ["GET", "HEAD"]
+        allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
+        path_pattern = "/api/v1/view_data"
+        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
+        origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewerExceptHost
         lambda_function_association {
           event_type = "viewer-request"
           lambda_arn = var.check_auth_ARN
@@ -171,6 +183,25 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
           event_type = "viewer-request"
           lambda_arn = var.parse_auth_ARN
         }
+    }
+    // Main Page
+    ordered_cache_behavior {
+        target_origin_id = local.s3_origin_id
+        viewer_protocol_policy = "redirect-to-https"
+        cached_methods = ["GET", "HEAD"]
+        allowed_methods = ["GET", "HEAD"]
+        path_pattern = "/"
+        cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"        // Caching Optimized
+        origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"   // AllViewer
+    }
+
+    default_cache_behavior {
+      allowed_methods = ["GET", "HEAD", "OPTIONS"]
+      cached_methods = ["GET", "HEAD"]
+      target_origin_id = local.s3_origin_id
+      viewer_protocol_policy = "redirect-to-https"
+      origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewer Except Host header
+      cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"        // Caching Optimized, every other part of the S3 origin should be cached. The entire layout is the same, the data just isn't (lambda origin response)
     }
 
     restrictions {

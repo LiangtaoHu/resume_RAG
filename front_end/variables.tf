@@ -17,3 +17,13 @@ variable "parse_auth_ARN" {
     type = string
     description =  "ARN of the Lambda@Edge function responsible for injecting JWT cookies"
 }
+
+variable "message_ARN" {
+    type = string
+    description = "ARN of the Lambda function responsible for sending a user message to the Bedrock Agent"
+}
+
+variable "view_data_ARN" {
+    type = string
+    description = "ARN of the Lambda function responsible for returning the user's conversations, resumes, and parsed listings"
+}

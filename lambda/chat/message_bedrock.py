@@ -5,6 +5,7 @@ import boto3
 
 REGION_NAME = os.environ['REGION_NAME']
 AGENT_ID = os.environ["AGENT_ID"]
+AGENT_ALIAS_ID = os.environ["AGENT_ALIAS_ID"]
 KB_ID = os.environ["KB_ID"]
 DYNAMO_DB_TABLE = os.environ["DYNAMO_DB_TABLE"]
 
@@ -126,7 +127,7 @@ def lambda_handler(event, context):
         user_message = "USER RESUME: \n" + resume_text + "\n" + "USER MESSAGE: \n" + user_message
     response = bedrock_client.invoke_agent(
         agentId = AGENT_ID,
-        agentAliasId = "", #TODO
+        agentAliasId = AGENT_ALIAS_ID,
         inputText = user_message,
         sessionId = conversation_id,
         sessionState = {

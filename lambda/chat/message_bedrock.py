@@ -14,14 +14,6 @@ dynamo_table = dynamo_client.Table(DYNAMO_DB_TABLE)
 
 bedrock_client = boto3.client(service_name="bedrock-agent-runtime", region_name=REGION_NAME)
 
-'''
-TODO: Should be made into an infrastructure step
-bedrock_client.associate_agent_knowledge_base(
-    agentId=AGENT_ID,
-    agentVersion='',
-    knowledgeBaseId = KB_ID,
-)
-'''
 def derive_full_text(response):
     full_text = ""
     for event in response.get("completion", []):

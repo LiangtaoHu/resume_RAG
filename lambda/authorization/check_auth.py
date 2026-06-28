@@ -62,7 +62,7 @@ def refresh_tokens(refresh_token, domain_name, requested_uri):
             return_pathway = return_pathway + original_uri
 
         return {
-            "status": "307",
+            "status": "302",
             "statusDescription": "found",
             "headers": {
                 "location": [{
@@ -159,7 +159,7 @@ def lambda_handler(event, context):
             # Either tampered with or there is just no information, redirect to Hosted UI to sign in or create an account
             redirect_url, nonce = build_cognito_url(requested_uri, domain_name)
         return {
-            "status": 307,
+            "status": 302,
             "statusDescription": "found",
             "headers": {
                 "location": [{

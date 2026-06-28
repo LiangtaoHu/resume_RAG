@@ -79,7 +79,7 @@ def lambda_handler(event, context):
         #     return_pathway = return_pathway + original_uri
 
         return {
-            "status": "307",
+            "status": "302",
             "statusDescription": "found",
             "headers": {
                 "location": [{
@@ -103,17 +103,19 @@ def lambda_handler(event, context):
             }
         }
     except Exception as e:
-        if isinstance(e, InvalidSignatureError):
+            error_reason = "internal_error"
+            if isinstance(e, InvalidSignatureError):
+                error_reason = "tampered_nonce"
+            elif isinstance(e, ExpiredSignatureError):
+                error_reason = "missing_access_code"
+            
             return {
-                "status": "403",
-                "statusDescription": "Tampered Nonce"
+                "status": "302",
+                "statusDescription": "Found",
+                "headers": {
+                    "location": [{
+                        "key": "Location",
+                        "value": f"/index.html?error=auth_failed&reason={error_reason}"
+                    }]
+                }
             }
-        if isinstance(e, ExpiredSignatureError):
-            return {
-                "status": "403",
-                "statusDescription": "Error: Missing Access Code"
-            }
-        return {
-            "status": "500",
-            "statusDescription": f"Internal Server Error: {str(e)}"
-        }

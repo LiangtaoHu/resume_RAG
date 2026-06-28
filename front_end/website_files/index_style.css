@@ -1,0 +1,34 @@
+.content {
+    flex: 1; /* Pushes the footer down and takes up all remaining space */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+}
+
+.content h1 {
+    font-size: 4rem;
+    padding: 1rem 0;
+}
+
+.content .register_button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    
+    color: rgb(227, 236, 234);
+    background-color: rgb(64, 70, 176);
+    font-size: 15px;
+    margin-top: 30px;
+    border: none;
+    border-radius: 15px;
+    
+    padding: 0.75rem 1.5rem;
+    transition: background-color 0.2s ease;
+}
+
+.content .my_Button:hover {
+    background-color: rgb(52, 59, 191);
+}

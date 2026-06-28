@@ -1,0 +1,23 @@
+.content {
+    flex: 1; /* Pushes the footer down and takes up all remaining space */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+}
+
+.content b {
+    font-size: 4rem;
+    color: #dc3545; /* Error Red */
+    letter-spacing: 2px;
+    line-height: 1;
+}
+
+.content p {
+    font-size: 1.5rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+    font-weight: 300;
+}

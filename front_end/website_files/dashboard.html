@@ -8,8 +8,8 @@ There'll be a header and footer where there'll be a sign out button in the forme
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="base_style.css">
-    <link rel="stylesheet" href="dashboard_style.css">
+    <link rel="stylesheet" href="./style/base.css">
+    <link rel="stylesheet" href="./style/dashboard.css">
     <title>Resume Optimizer - Dashboard</title>
 </head>
 <body>
@@ -20,18 +20,33 @@ There'll be a header and footer where there'll be a sign out button in the forme
 
         <nav>
             <ul>
-                <li><a href="/">home</a></li> <!-- TODO: Add link -->
+                <li><a href="./index.html">home</a></li> <!-- TODO: Add link -->
                 <li><a href="#">Sign Out</a></li> <!-- TODO: Add link -->
             </ul>
         </nav>
     </header>
 
     <div class="content">
-        <h1 id="greeting"> Hello User#! </h1>
+        <h1 id="greeting"> Hello <span id="user_tag">User#</span>! </h1>
+        <script>
+            function getCookie(name) {
+                const cookies = document.cookie.split(";");
+                for (let i = 0; i < cookies.length; i++) {
+                    let cookie = cookies[i];
+                    if (cookie.startsWith(name+"=") == true) {
+                        return decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                }
+                return "Temp";
+            }
+
+            user_identity = getCookie('user_identity');
+            document.getElementById("user_tag").textContent += user_identity;
+        </script>
         <ul class="user_actions">
-            <li> <a href="#"> >>View Conversations </a> </li>
-            <li> <a href="#"> >>View Resumes </a> </li>
-            <li> <a href="#"> >>View Listings </a> </li>
+            <li> <a href="./chats.html"> >>View Conversations </a> </li>
+            <li> <a href="./resumes.html"> >>View Resumes </a> </li>
+            <li> <a href="./listings.html"> >>View Listings </a> </li>
         </ul>
     </div>
 

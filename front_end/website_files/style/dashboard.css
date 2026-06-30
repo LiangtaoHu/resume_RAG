@@ -1,0 +1,16 @@
+.content {
+    margin-top: 20px;
+    margin-left: 20px;
+}
+
+.user_actions {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.user_actions li a {
+    font-size: 20px;
+}

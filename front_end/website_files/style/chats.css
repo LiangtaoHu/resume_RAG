@@ -1,0 +1,87 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+.content {
+    display: flex;
+    flex-direction: row;
+    padding: 15px 15px; 
+    gap: 20px;
+    flex: 1;
+}
+
+.selection_screen {
+    border: 1px solid #ccc;
+    flex: 3;
+    padding: 5px;
+}
+
+.chat_window {
+    border: 1px solid #ccc;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-radius: 10px;
+
+}
+
+.chat_history {
+    margin: 10px;
+    flex: 5;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+}
+
+.message_bar {
+    margin: 10px;
+    flex: 2;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    display:flex;
+    flex-direction:column;
+    gap: 5px;
+}
+
+.message_space {
+    border-radius: 5px;
+    flex: 3;
+    border: 1px solid #ccc;
+}
+
+.bottom_message_bar {
+    border-radius: 5px;
+    /* margin: 0 5px 5px; */
+    border: 1px solid #ccc;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.submit_message_button {
+    aspect-ratio: 1/1;
+    padding: 10px; /* Adjusting padding directly resizes the circle */
+    border-radius: 50%;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    
+    border: none;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+/* Size constraints for the SVG arrow */
+.arrow_icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
+/* Micro-interaction on click */
+.submit_message_button:active {
+    transform: scale(0.92);
+}

@@ -25,6 +25,32 @@
     flex: 5;
     border: 1px solid #ccc;
     border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+
+    padding: 5px;
+    gap: 0.5em;
+    overflow-y:scroll;
+}
+
+.agent_message {
+    background-color: rgb(53, 102, 208);
+    justify-content: center;
+    border-radius: 10px;
+    padding: 10px;
+    max-width: 15em;
+    width: fit-content;
+}
+
+.user_message {
+    background-color: #369d47;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 10px;
+    max-width: 15em;
+    width: fit-content;
+    justify-self: end;
+    margin-left: auto;
 }
 
 .message_bar {
@@ -41,6 +67,7 @@
     border-radius: 5px;
     flex: 3;
     border: 1px solid #ccc;
+    resize: none;
 }
 
 .bottom_message_bar {
@@ -62,10 +89,16 @@
     justify-content: center;
     
     border: none;
-    background-color: #007bff;
+    background-color: #d8d8d8;
+    color: rgb(0, 0, 0);
+    cursor: default;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.submit_message_button:not(:disabled) {
+    background-color:#007bff; 
     color: white;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
 /* Size constraints for the SVG arrow */
@@ -73,10 +106,11 @@
     width: 20px;
     height: 20px;
     display: block;
+    color:white;
 }
 
 /* Micro-interaction on click */
-.submit_message_button:active {
+.submit_message_button:not(:disabled):active {
     transform: scale(0.92);
 }
 
@@ -149,12 +183,20 @@
     width:max-content;
     cursor: pointer;
 
-    background-color:#007bff;
-    color: white;
+    background-color:#d1d1d1;
+    color: rgb(0, 0, 0);
     padding: 15px;
     border-radius: 5px;
     margin-right: 5px;
     margin-bottom: 5px;
+
+    cursor: default;
+}
+
+.generate_chat_button:not(:disabled) {
+    color: white;
+    background-color:#007bff;
+    cursor: pointer;
 }
 
 .icon:not(.selected):hover {

@@ -39,13 +39,13 @@ Body is split vertically with 3/4ths of the space being dedicated to choosing or
         <div id="outer-wrapper" class="wrapper-flex">
             <div id="conversation_selection" class="selection_screen">
                 <div id="create_button" class="create_icon">create</div>
+                <div id="0" class="icon">test</div>
+                <!-- <div class="icon">test</div>
                 <div class="icon">test</div>
                 <div class="icon">test</div>
                 <div class="icon">test</div>
                 <div class="icon">test</div>
-                <div class="icon">test</div>
-                <div class="icon">test</div>
-                <div class="icon">test</div>
+                <div class="icon">test</div> -->
             </div>
     
             <div id="creation_menu" class="creation_layout hidden">
@@ -69,17 +69,18 @@ Body is split vertically with 3/4ths of the space being dedicated to choosing or
                     <div class="icon">test</div>
                     <div class="icon">test</div>
                 </div>
-                <button type="submit" class="generate_chat_button">Generate</button>
+                <button type="submit" id="generate_chat_button" class="generate_chat_button">Generate</button>
             </div>
         </div>
         <div class="chat_window">
-            <div class="chat_history"></div>
+            <div id="chat_history" class="chat_history"></div>
             <div class="message_bar">
-                <input type="text" class="message_space"></div>
+                <textarea id="message_space" class="message_space"></textarea>
                 <div class="bottom_message_bar">
-                    <button class="submit_message_button">
-                        <svg xmlns="http://w3.org" viewBox="0 0 24 24" fill="currentColor" class="arrow_icon">
-                        <path d="M13 19V7.83l5.59 5.59L20 12l-8-8-8 8 1.41 1.41L11 7.83V19h2z"/>
+                    <button id="submit_message_button" class="submit_message_button">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="arrow_icon">
+                            <path d="M13 19V7.83l5.59 5.59L20 12l-8-8-8 8 1.41 1.41L11 7.83V19h2z"/>
+                        </svg>
                     </button> 
                 </div>
             </div>

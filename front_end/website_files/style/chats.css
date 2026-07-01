@@ -11,19 +11,13 @@
     flex: 1;
 }
 
-.selection_screen {
-    border: 1px solid #ccc;
-    flex: 3;
-    padding: 5px;
-}
-
 .chat_window {
     border: 1px solid #ccc;
     flex: 1;
     display: flex;
     flex-direction: column;
     border-radius: 10px;
-
+    height: 50em;
 }
 
 .chat_history {
@@ -84,4 +78,89 @@
 /* Micro-interaction on click */
 .submit_message_button:active {
     transform: scale(0.92);
+}
+
+.wrapper-flex {
+    border: 1px solid #ccc;
+    flex: 3;
+
+}
+
+.selection_screen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 250px);
+    grid-auto-rows: 250px;
+
+    padding: 10px;
+    gap: 1em;
+}
+
+.creation_layout {
+    display:flex;
+    flex-direction: column;
+}
+
+.plus_symbol {
+    text-align: center;
+}
+
+.back_button {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: max-content;
+}
+
+.creation_grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 250px);
+    grid-auto-rows: 250px;
+    gap: 1em;
+    padding: 5px;
+    justify-content: center;
+}
+
+.create_icon {
+    display:flex;
+    background-color: rgb(255, 0, 0);
+    flex-direction: column;
+    text-align:center;
+}
+
+.icon {
+    display:flex;
+    background-color: blue;
+    flex-direction: column;
+    text-align:center;
+    border-radius: 12px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.generate_chat_button {
+    background: none;
+    border: none;
+    align-self: end;
+    width:max-content;
+    cursor: pointer;
+
+    background-color:#007bff;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.icon:not(.selected):hover {
+    background: rebeccapurple;
+}
+
+.icon.selected {
+    background-color: #157325;
 }

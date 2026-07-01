@@ -17,6 +17,7 @@ Body is split vertically with 3/4ths of the space being dedicated to choosing or
     <meta charset="UTF-8">
     <link rel="stylesheet" href="./style/base.css">
     <link rel="stylesheet" href="./style/chats.css">
+    <script src="./javascript/chats.js" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resume Optimizer - Your Conversations</title>
 </head>
@@ -35,13 +36,46 @@ Body is split vertically with 3/4ths of the space being dedicated to choosing or
     </header>
 
     <div class="content">
-        <div class="selection_screen">
-
+        <div id="outer-wrapper" class="wrapper-flex">
+            <div id="conversation_selection" class="selection_screen">
+                <div id="create_button" class="create_icon">create</div>
+                <div class="icon">test</div>
+                <div class="icon">test</div>
+                <div class="icon">test</div>
+                <div class="icon">test</div>
+                <div class="icon">test</div>
+                <div class="icon">test</div>
+                <div class="icon">test</div>
+            </div>
+    
+            <div id="creation_menu" class="creation_layout hidden">
+                <button type="button" id="back_button" class="back_button">&lt;&lt;</button>
+                <div id="resume_grid" class="creation_grid">
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                </div>
+                <h1 class="plus_symbol"> + </h1>
+                <div id="listings_grid" class="creation_grid">
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                    <div class="icon">test</div>
+                </div>
+                <button type="submit" class="generate_chat_button">Generate</button>
+            </div>
         </div>
         <div class="chat_window">
             <div class="chat_history"></div>
             <div class="message_bar">
-                <div class="message_space"></div>
+                <input type="text" class="message_space"></div>
                 <div class="bottom_message_bar">
                     <button class="submit_message_button">
                         <svg xmlns="http://w3.org" viewBox="0 0 24 24" fill="currentColor" class="arrow_icon">

@@ -9,7 +9,8 @@ Body then continues with a section named "Current Resumes" and displays icons fo
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="./style/base.css">
-    <link rel="stylesheet" href="./style/listings.css"
+    <link rel="stylesheet" href="./style/listings.css">
+    <script src="./javascript/listings.js" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resume Optimizer - My Listings</title>
 </head>
@@ -21,27 +22,47 @@ Body then continues with a section named "Current Resumes" and displays icons fo
         <nav>
             <ul>
                 <li><a href="/">home</a></li> <!-- TODO: Add link -->
-                <li><a href="#">Log in</a></li> <!-- TODO: Add link -->
+                <li><a href="#">Sign out</a></li> <!-- TODO: Add link -->
             </ul>
         </nav>
     </header>
     <div class="content">
         <h1>My Listings</h1>
-        <div class="listing_data info_collapsed">
+        <div id="view_listings" class="listing_data">
             <div class="table">
                 <div class="table_header">
                     <div id="add_button" class="header_button">Add + </div>
                     <div id="remove_button" class="header_button">Remove -</div>
                 </div>
-                <div class="table_entries">
-                    <div class="listing">Listing 1</div>
-                    <div class="listing">Listing 2</div>
-                    <div class="listing">Listing 3</div>
-                    <div class="listing">Listing 4</div>
-                    <div class="listing">Listing 5</div>
-                </div>
+                <div id="table_entries" class="table_entries"></div>
             </div>
-            <div class="side_view">Di</div>
+            <div id="side_view" class="side_view">
+              <div class="listing_details_header">
+                  <h2>Listing Details</h2>
+                  <button id="close_side_view" class="close_side_view_btn">X</button>
+              </div>
+              <div class="listing_details">
+                <div class="job_company">
+                  <span class="title">Company:</span>
+                  <div>Some company name</div>
+                </div>
+
+                <div class="job_position">
+                  <span class="title">Position:</span>
+                  <div>Some position name</div>
+                </div>
+
+                <div class="creation_details"> 
+                  <span class="title">Created at:</span>
+                  <div>timestamp</div>
+                </div>
+
+                <div class="url">
+                  <span class="title">URL:</span>
+                  <div>someLink</div>
+                </div>
+              </div>
+            </div>
         </div>
     </div>
     </div>

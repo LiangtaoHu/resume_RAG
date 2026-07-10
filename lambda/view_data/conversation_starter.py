@@ -58,6 +58,9 @@ def handler(event, context):
     except Exception:
         return {
             "statusCode": "500",
-            "headers": {"Content-Type": "application/json"},
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",  # CRUCIAL: Allows frontend to read the 500 body
+                "Access-Control-Allow-Methods": "GET, OPTIONS"}, # Match your allowed methods
             "body": json.dumps({"error": "Interal DynamoDB error. Couldn't retrieve data."})
         }

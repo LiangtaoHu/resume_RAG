@@ -1,3 +1,54 @@
+const LAMBDA_VIEW_DATA_URL = ""
+conversations = []
+listings = []
+resumes = []
+
+async function publish_chat() {
+    
+}
+
+async function fetch_data() {
+    try {
+        // TODO: While we load data, we should probably insert some elements to indicate we are doing so.
+        const response = fetch(LAMBDA_VIEW_DATA_URL, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        })
+        if (!response.ok) {
+            const error_data = await response.json()
+            throw Error(error_data.error)
+        }
+
+        const user_data = await response.json()
+        const resume_data = user_data["resumes"]
+        const listing_data = user_data["listings"]
+        const conv_data = user_data["conversations"]
+
+        resume_data.forEach(resume_json => {
+            const listing_entry = {
+                'name': resume_json['SK'],
+                'cachedText': resume_json['cachedText']
+            }
+            listings.append(listing_entry)
+        })
+        listing_data.forEach(listing_json => {
+            const listing_entry = {
+                'name': listing_json['SK'],
+            }
+            listings.append(listing_entry)
+        })
+        conv_data.forEach(conv_json => {
+            const conv_entry = {
+                'name': conv_json['SK'],
+                "chat_history": conv_json["ChatHistory"],
+            }
+            conversations.append(conv_entry)
+        })
+    } catch (error) {
+        table_entries.textContent = "Error fetching user listings from Lambda"
+    }
+}
+
 const conversation_selection = document.getElementById("conversation_selection");
 const creation_menu = document.getElementById("creation_menu");
 const chat_history = document.getElementById("chat_history");
@@ -14,7 +65,6 @@ const current_resume_icons = current_icons.filter(el => el.parentNode.id === "re
 const current_listing_icons = current_icons.filter(el => el.parentNode.id === "listings_grid");
 const conversation_icons = current_icons.filter(el => el.parentNode.id == "conversation_selection");
 
-conversations = []
 const test_messages = [
     {'role': "Agent", 'message': 'hey whats up dog'}, 
     {'role': 'User', 'message':'hahahahahahah i get the joke. HAH HAHAHHA. ITS SO FUNNY LIKE UP DOG LOL.'},
@@ -83,7 +133,6 @@ current_listing_icons.forEach(icon => icon.addEventListener("click", (event) => 
 
 conversation_icons.forEach(icon => icon.addEventListener("dblclick", (event) => {
     destroy_chat();
-    console.log('hey')
     set_up_chat(conversations[parseInt(icon.id)]);
 }));
 
@@ -101,7 +150,38 @@ Chat History format for now (will add generated file later):
     }
 ]
 */
-function load_data() {}
+function load_data() {
+    // Based on the conversations, resumes, and listings array we have we want to populate all the elements
+    const listings_grid = document.getElementById("listings_grid")
+    const resume_grid = document.getElementById("resume_grid")
+    index = 0;
+    listings.forEach(listing => {
+        const new_element = document.createElement("div");
+        new_element.textContent = listing["name"];
+        new_element.classList.add("icon");
+        new_element.id = index;
+        index++;
+        listings_grid.append(new_element);
+    })
+    index = 0;
+    resumes.forEach(resume => {
+        const new_element = document.createElement("div");
+        new_element.textContent = resume["name"];
+        new_element.classList.add("icon");
+        new_element.id = index;
+        index++;
+        resume_grid.append(new_element);
+    })
+    index = 0;
+    conversation_icons.forEach(conversation => {
+        const new_element = document.createElement("div");
+        new_element.textContent = conversation["name"];
+        new_element.classList.add("icon");
+        new_element.id = index;
+        index++;
+        conversation_selection.append(new_element);
+    })
+}
 
 function add_message(message) {
     const message_div = document.createElement('div');
@@ -140,3 +220,8 @@ message_submit_button.addEventListener("click", (event) => {
         chat_history.scrollTop = chat_history.scrollHeight;
     }
 });
+
+generate_button.addEventListener("click", (event) => {
+    // We have selected through variables the currently used resume and listing, pass into create_chat
+    create_chat();
+})

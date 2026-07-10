@@ -25,6 +25,11 @@
     font-size: 15px;
 }
 
+input:disabled + .res_upload_button {
+    color: #999;
+    cursor: not-allowed;
+}
+
 .res_upload_button:hover {
     background-color: #b1cff0;
     cursor: pointer;

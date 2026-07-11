@@ -3,6 +3,10 @@ variable "lambda_region" {
   type        = string
 }
 
+variable "bedrock_agent_arn" {
+  description = "ARN of bedrock agent"
+  type = string
+}
 variable "dynamo_arn" {
   description = "ARN of the DynamoDB table used to keep track of user data"
   type = string
@@ -10,16 +14,6 @@ variable "dynamo_arn" {
 
 variable "dynamo_table" {
   description = "Name of the DynamoDB table used to keep track of user data"
-  type = string
-}
-
-variable "expiration_time" {
-  description = "S3 presigned URL expiration time"
-  type = number
-}
-
-variable "bedrock_agent_arn" {
-  description = "ARN of bedrock agent"
   type = string
 }
 
@@ -36,4 +30,14 @@ variable "agent_id" {
 variable "bedrock_region" {
   description = "Region name where bedrock agent was deployed."
   type = string
+}
+
+variable "opensearch_arn" {
+  type = string
+  description = "ARN of opensearch collection"
+}
+
+variable "opensearch_url" {
+  type = string
+  description = "URL of opensearch collection"
 }

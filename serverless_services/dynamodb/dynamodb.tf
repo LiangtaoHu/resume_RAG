@@ -1,9 +1,9 @@
-resource "aws_secretsmanager_secret" "dynamo_username" {
+resource "aws_secretsmanager_secret" "dynamodb_username" {
     name = "doc-db-username"
 }
 
 resource "aws_secretsmanager_secret_version" "dynamodb_username" {
-    secret_id = aws_secretsmanager_secret.dynamodb_username
+    secret_id = aws_secretsmanager_secret.dynamodb_username.id
     secret_string = var.dynamo_username
 }
 
@@ -12,7 +12,7 @@ resource "aws_secretsmanager_secret" "dynamodb_password" {
 }
 
 resource "aws_secretsmanager_secret_version" "dynamodb_password" {
-    secret_id = aws_secretsmanager_secret.dynamodb_password
+    secret_id = aws_secretsmanager_secret.dynamodb_password.id
     secret_string = var.dynamo_password
 }
 

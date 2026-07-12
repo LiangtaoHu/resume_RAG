@@ -1,0 +1,211 @@
+.content {
+    display: flex;
+    flex-direction: row;
+    padding: 15px 15px;
+    gap: 20px;
+    flex: 1;
+}
+
+.wrapper_flex {
+    border: 1px solid #ccc;
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+}
+
+.selection_screen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 250px);
+    grid-auto-rows: 250px;
+    padding: 10px;
+    gap: 1em;
+    flex: 1;
+}
+
+.create_icon {
+    display: flex;
+    background-color: rgb(255, 0, 0);
+    color: white;
+    flex-direction: column;
+    text-align: center;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.creation_layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.creation_grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 250px);
+    grid-auto-rows: 250px;
+    gap: 1em;
+    padding: 5px;
+    justify-content: center;
+}
+
+.plus_symbol {
+    text-align: center;
+    font-size: 1.5rem;
+}
+
+.back_button {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: max-content;
+}
+
+.icon {
+    display: flex;
+    background-color: blue;
+    color: white;
+    flex-direction: column;
+    text-align: center;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    word-break: break-all;
+    padding: 0.5em;
+    cursor: pointer;
+}
+
+.icon:not(.selected):hover {
+    background: rebeccapurple;
+}
+
+.icon.selected {
+    background-color: #157325;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.generate_chat_button {
+    background-color: #d1d1d1;
+    color: rgb(0, 0, 0);
+    padding: 15px;
+    border-radius: 5px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    align-self: end;
+    width: max-content;
+    border: none;
+    cursor: not-allowed;
+}
+
+.generate_chat_button:not(:disabled) {
+    color: white;
+    background-color: #007bff;
+    cursor: pointer;
+}
+
+.chat_window {
+    border: 1px solid #ccc;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-radius: 10px;
+    height: 50em;
+}
+
+.chat_history {
+    margin: 10px;
+    flex: 5;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    gap: 0.5em;
+    overflow-y: scroll;
+}
+
+.agent_message {
+    background-color: rgb(53, 102, 208);
+    color: white;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 10px;
+    max-width: 15em;
+    width: fit-content;
+}
+
+.user_message {
+    background-color: #369d47;
+    color: white;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 10px;
+    max-width: 15em;
+    width: fit-content;
+    margin-left: auto;
+}
+
+.message_bar {
+    margin: 10px;
+    flex: 2;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.message_space {
+    border-radius: 5px;
+    flex: 3;
+    border: 1px solid #ccc;
+    resize: none;
+    font-family: inherit;
+    padding: 0.5em;
+}
+
+.bottom_message_bar {
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.submit_message_button {
+    aspect-ratio: 1/1;
+    padding: 10px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background-color: #d8d8d8;
+    color: rgb(0, 0, 0);
+    cursor: default;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.submit_message_button:not(:disabled) {
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+.submit_message_button:not(:disabled):active {
+    transform: scale(0.92);
+}
+
+.arrow_icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+    color: white;
+}

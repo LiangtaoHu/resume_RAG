@@ -14,6 +14,7 @@ dynamo_table = dynamo_client.Table(DYNAMO_DB_TABLE)
 
 bedrock_client = boto3.client(service_name="bedrock-agent-runtime", region_name=REGION_NAME)
 
+
 def derive_full_text(response):
     full_text = ""
     for event in response.get("completion", []):
@@ -21,32 +22,57 @@ def derive_full_text(response):
             full_text += event["chunk"]["bytes"].decode('utf-8')
     return full_text
 
-def get_header_values(headers):
-    cookies = {}
-    if "cookie" in headers:
-        # Loop through all the cookies
-        for cookie in headers["cookie"]:
-            # We are mainly interested in the value as the key for each is just "cookie"
-            # The value can be multi-cookie per actual cookie, with a separator of ";"
-            cookie_string = cookie.get("value", "")
-            for cookie_instance in cookie_string.split(";"):
-                # We split again on the equals sign
-                if "=" in cookie_instance:
-                    key, value = cookie_instance.split("=", 1)
-                    cookies[key.strip()] = value.strip()
-    user_identity = cookies.get("idToken")
-    conversation_id = headers.get("conversation_id", "")
-    # TODO: Do we need to return in case there's no user_identity?
-    return user_identity, conversation_id
+
+def cors_headers(event):
+    """Echo the caller's origin. API Gateway CORS handles preflight, but does
+    not inject these onto proxied Lambda responses, so every path uses this."""
+    origin = (event.get("headers", {}) or {}).get("origin", "*")
+    return {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": origin,
+    }
+
+
+def get_user_identity(event):
+    """Pull the authenticated user's Cognito `sub` from the JWT authorizer."""
+    claims = (
+        event.get("requestContext", {})
+        .get("authorizer", {})
+        .get("jwt", {})
+        .get("claims", {})
+    )
+    return claims.get("sub")
+
+
+def parse_body(event):
+    """API Gateway HTTP API (payload_format_version 2.0) hands us a string body."""
+    raw = event.get("body")
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+
 
 def lambda_handler(event, context):
-    # We are already authenticated
-    raw_headers = event.get("headers", {})
-    headers = {k.lower(): v for k, v in raw_headers.items()}
-    user_identity, conversation_id = get_header_values(headers)
-    # Conversation ID check
+    headers = cors_headers(event)
+    user_identity = get_user_identity(event)
+    if not user_identity:
+        return {
+            "statusCode": 401,
+            "headers": headers,
+            "body": json.dumps({"error": "Unauthorized: Missing identity from authorizer"})
+        }
+
+    # conversation_id now arrives as a custom header (was previously pulled from
+    # the cookie via get_header_values()).
+    raw_headers = event.get("headers", {}) or {}
+    headers_lower = {k.lower(): v for k, v in raw_headers.items()}
+    conversation_id = headers_lower.get("conversation_id", "")
+
     response = dynamo_table.get_item(
-        Key = {
+        Key={
             'HK': f"USER#{user_identity}",
             'SK': f"CONV#{conversation_id}"
         }
@@ -55,18 +81,17 @@ def lambda_handler(event, context):
     chatHistory = conversation.get("chatHistory", [])
     resume_id = conversation.get("resumeID", "")
     if conversation == {}:
-        resume_id = headers.get("resume_id", "")
-        job_id = headers.get("job_id", "")
-        # If either of these are empty strings, we cannot help you
+        resume_id = headers_lower.get("resume_id", "")
+        job_id = headers_lower.get("job_id", "")
         if not resume_id or not job_id:
             return {
-                'statusCode': "400",
-                "headers": {"Content-Type": "application/json"},
+                "statusCode": 400,
+                "headers": headers,
                 "body": json.dumps({"error": "Neither conversation id or resume and job ids were provided. Invalid Request."})
             }
 
         dynamo_table.put_item(
-            Item = {
+            Item={
                 'HK': f"USER#{user_identity}",
                 'SK': f"CONV#{resume_id}-{job_id}",
                 'resumeID': resume_id,
@@ -74,11 +99,11 @@ def lambda_handler(event, context):
                 'chatHistory': chatHistory
             }
         )
-    # Now we definitely have a conversation with this id in the database. We just need to determine if we are in the 1 hour message timelimit
-    one_hour_ago = time.time() - 3600 # 3600 seconds in an hour
-    buffer_time = 10 # 10 seconds
+
+    one_hour_ago = time.time() - 3600
+    buffer_time = 10
     job_result = dynamo_table.get_item(
-        Key = {
+        Key={
             'HK': user_identity,
             'SK': f"JOB#{job_id}"
         }
@@ -86,43 +111,45 @@ def lambda_handler(event, context):
     job_object = job_result.get("Item", {})
     if job_object == {}:
         return {
-            'statusCode': "400",
-            "headers": {"Content-Type": "application/json"},
+            "statusCode": 400,
+            "headers": headers,
             "body": json.dumps({"error": "Job id is invalid."})
         }
-    body = event.get("body", {})
+
+    body = parse_body(event)
     user_message = body.get("user_message", "")
     if user_message == "":
         return {
-            'statusCode': "400",
-            "headers": {"Content-Type": "application/json"},
+            "statusCode": 400,
+            "headers": headers,
             "body": json.dumps({"error": "User message is invalid."})
         }
-    # We have chatHistory and our message was more than an hour ago, send entire chat History with it
+
     if chatHistory != [] and chatHistory[-1]['timestamp'] < (one_hour_ago + buffer_time):
         user_message = "CHAT HISTORY UP UNTIL THIS POINT: \n" + json.dumps(chatHistory) + "\n" + "USER MESSAGE: \n" + user_message
     else:
         resume_item = dynamo_table.get_item(
-            Key = {
+            Key={
                 'HK': f"USER#{user_identity}",
                 'SK': f"RESUME#{resume_id}"
             }
         )
         resume = resume_item.get("Item")
-        resume_text = resume.get("CachedText", "")
+        resume_text = resume.get("cachedText", "")
         if resume_text == "":
             return {
-                'statusCode': "400",
-                "headers": {"Content-Type": "application/json"},
+                "statusCode": 400,
+                "headers": headers,
                 "body": json.dumps({"error": "Resume is empty."})
             }
         user_message = "USER RESUME: \n" + resume_text + "\n" + "USER MESSAGE: \n" + user_message
+
     response = bedrock_client.invoke_agent(
-        agentId = AGENT_ID,
-        agentAliasId = AGENT_ALIAS_ID,
-        inputText = user_message,
-        sessionId = conversation_id,
-        sessionState = {
+        agentId=AGENT_ID,
+        agentAliasId=AGENT_ALIAS_ID,
+        inputText=user_message,
+        sessionId=conversation_id,
+        sessionState={
             "knowledgeBaseConfigurations": [{
                 "knowledgeBaseId": KB_ID,
                 "retrievalConfiguration": {
@@ -133,26 +160,23 @@ def lambda_handler(event, context):
                                     "key": "user-id",
                                     "value": user_identity
                                 }
-                            }, 
+                            },
                             {
-                            'equals': {
-                                "key": "title",
-                                "value": f"{job_object['company']}-{job_object['position']}"
+                                'equals': {
+                                    "key": "title",
+                                    "value": f"{job_object['company']}-{job_object['position']}"
                                 }
                             }]
                         }
-                        # implicit filtering?
-                        # number of results?
                     },
-                    # returnControlInvocationResults
                 }
             }]
         }
     )
     return {
-        'statusCode': 200,
-        "headers": {"Content-Type": "application/json"},
-        'body': {
-            'agent_text': derive_full_text(response)
-        }
+        "statusCode": 200,
+        "headers": headers,
+        "body": json.dumps({
+            "agent_text": derive_full_text(response)
+        })
     }

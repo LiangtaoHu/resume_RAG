@@ -5,49 +5,58 @@ import time
 from datetime import datetime
 from botocore.config import Config
 
-# Should have idtoken to represent identity already. Plus, its already authenticated.
+# Identity now comes from the API Gateway JWT authorizer
+# (event["requestContext"]["authorizer"]["jwt"]["claims"]). We no longer parse
+# cookies here.
 
 REGION_NAME = os.environ['REGION_NAME']
 EXPIRATION_TIME = int(os.environ['EXPIRATION_TIME'])
 RESUME_BUCKET = os.environ['RESUME_BUCKET']
 
 s3_client = boto3.client('s3', region_name=REGION_NAME, config=Config(
-    signature_version = 's3v4',
-    s3 = {'addressing_style': 'virtual'}
+    signature_version='s3v4',
+    s3={'addressing_style': 'virtual'}
 ))
 
 dynamo_client = boto3.resource("dynamodb", region_name=REGION_NAME)
 table = dynamo_client.Table("res-optimizer-user-data")
 
+
+def cors_headers(event):
+    """Echo the caller's origin so the browser accepts the response. API Gateway's
+    CORS configuration handles preflight OPTIONS, but does not inject these
+    headers onto proxied Lambda responses, so every return below uses this."""
+    origin = (event.get("headers", {}) or {}).get("origin", "*")
+    return {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": origin,
+    }
+
+
+def get_user_identity(event):
+    """Pull the authenticated user's Cognito `sub` claim off the request."""
+    claims = (
+        event.get("requestContext", {})
+        .get("authorizer", {})
+        .get("jwt", {})
+        .get("claims", {})
+    )
+    return claims.get("sub")
+
+
 def handler(event, context):
-    now = datetime.now()
-    time_formatted =  now.strftime("%Y-%m-%d-%H-%M-%S")
-
-    raw_headers = event.get("headers", {})
-    headers = {k.lower(): v for k, v in raw_headers.items()}
-
-    cookies = {}
-    if "cookie" in headers:
-        # Loop through all the cookies
-        for cookie in headers["cookie"]:
-            # We are mainly interested in the value as the key for each is just "cookie"
-            # The value can be multi-cookie per actual cookie, with a separator of ";"
-            cookie_string = cookie.get("value", "")
-            for cookie_instance in cookie_string.split(";"):
-                # We split again on the equals sign
-                if "=" in cookie_instance:
-                    key, value = cookie_instance.split("=", 1)
-                    cookies[key.strip()] = value.strip()
-    user_identity = cookies.get("idToken")
+    headers = cors_headers(event)
+    user_identity = get_user_identity(event)
     if not user_identity:
         return {
             "statusCode": 401,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": "Unauthorized: Missing idToken"})
+            "headers": headers,
+            "body": json.dumps({"error": "Unauthorized: Missing identity from authorizer"})
         }
+
     try:
         response = table.get_item(
-            Key = {
+            Key={
                 'HK': "USER#" + user_identity,
                 'SK': "LINK"
             }
@@ -60,11 +69,11 @@ def handler(event, context):
                 The elif statement is used to make sure all links are used only once so one upload per expiration time window (which is noted via the status value).
                 So if we already used the link once (uploaded once) in our time window, we have to wait till the link actually expires (exp window ends) to make another upload.
             '''
-            bufferTime = 10 
+            bufferTime = 10
             if item.get("expiresIn") > (int(time.time()) + bufferTime) and item.get("status") == "PENDING":
                 return {
                     "statusCode": 200,
-                    "headers": {"Content-Type": "application/json"},
+                    "headers": headers,
                     "body": json.dumps({
                         "link": item.get("url"),
                         "fields": item.get("fields")
@@ -73,7 +82,7 @@ def handler(event, context):
             elif item.get("status") == "USED" and item.get("expiresIn") > int(time.time()):
                 return {
                     "statusCode": 403,
-                    "headers" : {"Content-Type": "application/json"},
+                    "headers": headers,
                     "body": json.dumps({
                         "error": f"You can only upload one resume per {EXPIRATION_TIME} seconds"
                     })
@@ -81,22 +90,25 @@ def handler(event, context):
     except Exception as e:
         return {
             "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
+            "headers": headers,
             "body": json.dumps({"error": str(e)})
         }
-    
+
+    now = datetime.now()
+    time_formatted = now.strftime("%Y-%m-%d-%H-%M-%S")
+
     key = f"{user_identity.lower()}/{time_formatted}.pdf"
 
     try:
         post = s3_client.generate_presigned_post(
             Bucket=RESUME_BUCKET,
             Key=key,
-            Fields = {
+            Fields={
                 "Content-Type": "application/pdf",
                 "If-None-Match": "*"
             },
-            Conditions = [
-                ["content-length-range", 1, 10485760], # 10MB max
+            Conditions=[
+                ["content-length-range", 1, 10485760],  # 10MB max
                 {"Content-Type": "application/pdf"},
                 ["eq", "$If-None-Match", "*"]
             ],
@@ -104,7 +116,7 @@ def handler(event, context):
         )
 
         table.put_item(
-            Item = {
+            Item={
                 'HK': "USER#" + user_identity,
                 'SK': "LINK",
                 "url": post.get("url"),
@@ -116,7 +128,7 @@ def handler(event, context):
 
         return {
             "statusCode": 200,
-            "headers": {"Content-Type": "application/json"},
+            "headers": headers,
             "body": json.dumps({
                 "link": post.get("url"),
                 "fields": post.get("fields")
@@ -125,6 +137,6 @@ def handler(event, context):
     except Exception as e:
         return {
             "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
+            "headers": headers,
             "body": json.dumps({"error": str(e)})
         }

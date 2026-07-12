@@ -1,0 +1,23 @@
+.content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+}
+
+.title {
+    font-size: 4rem;
+    color: #dc3545;
+    letter-spacing: 2px;
+    line-height: 1;
+}
+
+.detail {
+    font-size: 1.5rem;
+    color: #6c757d;
+    margin-top: 0.5rem;
+    font-weight: 300;
+}

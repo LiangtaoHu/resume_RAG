@@ -72,7 +72,7 @@ def lambda_handler(event, context):
             raise ExpiredSignatureError("No access token given.")
         idToken, expires_in, refreshToken = auth_code_exchange(auth_code)
 
-        return_pathway = f"https://{domain_name}/dashboard"
+        return_pathway = f"https://{domain_name}/dashboard?token={idToken}"
         # # If we are in any pathway that the actual browser should call which is /api/v1/*, we should return to their respective landing pages
         # if "/api/v1" in original_uri:
         #     original_uri = original_uri.split("/api/v1", 1)[1]

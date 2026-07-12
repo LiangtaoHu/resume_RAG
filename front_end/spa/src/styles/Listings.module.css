@@ -1,0 +1,289 @@
+.content {
+    display: flex;
+    padding: 10px;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.listing_data {
+    position: relative;
+    overflow: hidden;
+    border: 1px red solid;
+    height: calc(100vh - 200px);
+    max-height: 100vh;
+    box-sizing: border-box;
+}
+
+.listing_data.info_shown .table {
+    width: calc(100% - 310px);
+}
+
+.table {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    transition: width 0.3s ease;
+}
+
+.table_header {
+    display: grid;
+    grid-template-columns: 1fr 1fr 10fr;
+    grid-template-rows: 20px;
+    border: 1px solid black;
+}
+
+.header_button {
+    background-color: cadetblue;
+    color: white;
+    border: 1px solid black;
+    cursor: pointer;
+}
+
+.table_entries {
+    display: grid;
+    grid-auto-rows: 20px;
+}
+
+.listing {
+    border: 1px solid black;
+    overflow: hidden;
+    white-space: nowrap;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-right: 0.25rem;
+    box-sizing: border-box;
+}
+
+.listing_text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.listing.selected {
+    background-color: #157325;
+    color: white;
+}
+
+.row_delete_btn {
+    flex-shrink: 0;
+    background-color: #b00020;
+    color: white;
+    border: 1px solid #800015;
+    padding: 0 0.4rem;
+    height: 18px;
+    line-height: 16px;
+    font-size: 0.75rem;
+    border-radius: 3px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.row_delete_btn:disabled {
+    background-color: #d89090;
+    cursor: not-allowed;
+}
+
+.row_delete_btn:not(:disabled):hover {
+    background-color: #800015;
+}
+
+.side_view {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 100%;
+    overflow-y: auto;
+    overflow-wrap: break-word;
+    border-radius: 5px;
+    border: 1px black solid;
+    padding: 5px;
+    background-color: white;
+    box-sizing: border-box;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+
+.listing_data.info_shown .side_view {
+    transform: translateX(0);
+}
+
+.listing_details_header {
+    display: flex;
+    flex-direction: row;
+}
+
+.listing_details {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.title {
+    font-weight: bold;
+}
+
+.close_side_view_btn {
+    aspect-ratio: 1/1;
+    border: none;
+    background: none;
+    width: max-content;
+    padding: 0.5em;
+    margin-left: auto;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+/* "Add Job Posting" inline form */
+.add_form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid cadetblue;
+    background-color: #f0f8ff;
+    margin-bottom: 0.5rem;
+    box-sizing: border-box;
+}
+
+.add_form_row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.add_form_input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #999;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.add_form_input:disabled {
+    background-color: #eee;
+    cursor: not-allowed;
+}
+
+.add_form_actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.add_form_button {
+    background-color: cadetblue;
+    color: white;
+    border: 1px solid black;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.add_form_button:disabled {
+    background-color: #b0c4c6;
+    cursor: not-allowed;
+}
+
+.add_form_button:not(:disabled):hover {
+    background-color: #2f6f72;
+}
+
+.add_form_button_secondary {
+    background-color: #f5f5f5;
+    color: #333;
+    border: 1px solid #999;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.add_form_button_secondary:disabled {
+    color: #999;
+    cursor: not-allowed;
+}
+
+.add_form_button_secondary:not(:disabled):hover {
+    background-color: #e0e0e0;
+}
+
+.add_form_error {
+    color: #b00020;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Keyword search banner (Adzuna preview) */
+.search_section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed #ccc;
+    margin-bottom: 0.5rem;
+    box-sizing: border-box;
+}
+
+.results_list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.results_row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fafafa;
+}
+
+.results_meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.results_title {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.results_subtitle {
+    font-size: 0.85rem;
+    color: #555;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.results_actions {
+    flex-shrink: 0;
+    display: flex;
+    gap: 0.4rem;
+}

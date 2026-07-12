@@ -81,7 +81,7 @@ resource "aws_iam_role_policy_attachment" "lambda_bedrock_policy" {
 data "aws_iam_policy_document" "lambda_dynamodb_policy" {
   statement {
     effect = "Allow"
-    actions = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"]
+    actions = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query"]
     resources = [var.dynamo_arn]
   }
 }
@@ -277,4 +277,73 @@ resource "aws_lambda_function" "lambda_message_bedrock" {
       }
     }
     tags = {}
+}
+
+/* ----- search_jobs Lambda (Adzuna proxy) ----- */
+data "archive_file" "search_jobs_file" {
+    type = "zip"
+    source_file = "${path.module}/search_jobs/search_jobs.py"
+    output_path = "${path.module}/search_jobs/search_jobs.zip"
+}
+
+resource "aws_lambda_function" "search_jobs" {
+    filename = data.archive_file.search_jobs_file.output_path
+    function_name = "lambda-search-jobs"
+    role = aws_iam_role.lambda_role.arn
+    handler = "search_jobs.handler"
+    source_code_hash = data.archive_file.search_jobs_file.output_base64sha256
+    runtime = "python3.9"
+    timeout = 30
+    memory_size = 256
+    environment {
+      variables = {
+        ADZUNA_APP_ID           = var.adzuna_app_id
+        ADZUNA_APP_KEY          = var.adzuna_app_key
+        ADZUNA_DEFAULT_COUNTRY  = var.adzuna_default_country
+        REGION_NAME             = data.aws_region.curr_region.region
+      }
+    }
+}
+
+/* ----- job_crud Lambda (add + soft-delete) ----- */
+/* Two handlers share one zip: a single archive_file pulls the whole
+   lambda/job_crud directory, and two aws_lambda_function resources reference
+   the same zip with different `handler` values. */
+data "archive_file" "job_crud_file" {
+    type        = "zip"
+    source_dir  = "${path.module}/job_crud"
+    output_path = "${path.module}/job_crud/job_crud.zip"
+    excludes    = ["*.tf", "*.zip"]
+}
+
+resource "aws_lambda_function" "job_crud_add" {
+    filename            = data.archive_file.job_crud_file.output_path
+    function_name       = "lambda-job-crud-add"
+    role                = aws_iam_role.lambda_role.arn
+    handler             = "add_job.handler"
+    source_code_hash    = data.archive_file.job_crud_file.output_base64sha256
+    runtime             = "python3.9"
+    timeout             = 15
+    memory_size         = 256
+    environment {
+      variables = {
+        DYNAMO_DB_TABLE = var.dynamo_table
+      }
+    }
+}
+
+resource "aws_lambda_function" "job_crud_delete" {
+    filename            = data.archive_file.job_crud_file.output_path
+    function_name       = "lambda-job-crud-delete"
+    role                = aws_iam_role.lambda_role.arn
+    handler             = "delete_job.handler"
+    source_code_hash    = data.archive_file.job_crud_file.output_base64sha256
+    runtime             = "python3.9"
+    timeout             = 15
+    memory_size         = 256
+    environment {
+      variables = {
+        DYNAMO_DB_TABLE = var.dynamo_table
+      }
+    }
 }

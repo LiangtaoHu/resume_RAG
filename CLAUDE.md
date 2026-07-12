@@ -13,11 +13,12 @@ The frontend is a React SPA (Vite + React 18 + React Router v6 + CSS Modules). T
 There is no test suite. The command surface has three layers: backend (Terraform), frontend (Vite), and the SPA→S3 deployment step.
 
 **Backend (Terraform):**
-- `terraform init && terraform apply` from the repo root. Provider pinned to AWS region `us-east-1` (main.tf). The `parse_auth` Lambda@Edge and HTTP API both require that region.
-- **Build & push the scraper image** — `null_resource.Lambda_DockerFile_Update` in `lambda/lambda_funcs.tf` shells out to `aws ecr get-login-password | docker login … && docker build && docker push` every apply, keyed on `filemd5` of `lambda/parse_listing/{Dockerfile, requirements.txt, lambda_scraper.py}`. Locally equivalent: `docker build -f lambda/parse_listing/Dockerfile lambda/parse_listing/`.
-- **Repackage zipped Lambdas** — every `data "archive_file"` block in `*.tf` regenerates a `.zip` on `terraform apply`; do not commit the generated `.zip` files.
+- All Terraform lives under `infra/`. Run `terraform init && terraform apply` from `infra/`. Provider pinned to AWS region `us-east-1` (infra/main.tf). The `parse_auth` Lambda@Edge and HTTP API both require that region.
+- **Layout**: `infra/{main,variables,outputs,api_gateway,cognito,cloudfront,lambdas,dynamodb,opensearch,bedrock}.tf`. Python sources under `../lambda/` and the React SPA under `../front_end/spa/` are NOT moved — Terraform only references them via `${path.module}/../lambda/...` paths.
+- **Build & push the scraper image** — `null_resource.Lambda_DockerFile_Update` in `infra/lambdas.tf` shells out to `aws ecr get-login-password | docker login … && docker build && docker push` every apply, keyed on `filemd5` of `lambda/parse_listing/{Dockerfile, requirements.txt, lambda_scraper.py}`. Locally equivalent: `docker build -f lambda/parse_listing/Dockerfile lambda/parse_listing/`.
+- **Repackage zipped Lambdas** — every `data "archive_file"` block in `infra/*.tf` regenerates a `.zip` on `terraform apply`; do not commit the generated `.zip` files. `infra/.gitignore` lists them.
 - **Update Lambda@Edge config** — `lambda/authorization/config.py.tmpl` is substituted into `config.py` (no Lambda@Edge env vars allowed). The mechanism is part of Terraform string interpolation — search for `templatefile`/`local_file`/`null_resource` if the substitution wiring isn't visible in the file you are looking at.
-- **Required env vars / secrets before apply** — `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` exported (commented TODO in main.tf); Cognito `SNS_external_ID`, CloudFront domain, `cognito_user_pool_id`, `cognito_user_pool_client_id`, plus all the `*_ARN`/`*_ID` cross-module variables declared in the various `variables.tf` files.
+- **Required env vars / secrets before apply** — `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` exported (commented TODO in main.tf); Cognito `SNS_external_ID`, CloudFront domain, `cognito_user_pool_id`, `cognito_user_pool_client_id`, plus all the `*_ARN`/`*_ID` variables declared in `infra/variables.tf`.
 
 **Frontend (Vite SPA at `front_end/spa/`):**
 - `cd front_end/spa && npm install` (one-time).
@@ -93,7 +94,7 @@ Identity is the **Cognito `sub` claim** propagated by the API Gateway authorizer
 - **OpenSearch index name mismatch** between `parse_listing/lambda_scraper.py` (`f"{sub}-job-listings"`) and the KB's declared `vector_index_name = "resume-rag-database"` in `serverless_services/bedrock.tf`. Fix by aligning the scraper to write to `resume-rag-database` (matching the KB) and switching the metadata filter accordingly.
 - **`AGENT_ALIAS_ID` env var** is referenced in `lambda/chat/message_bedrock.py:8` but no `variables.tf` declares it yet. `terraform apply` will fail.
 - **No `cognito_domain` variable** for the SPA's `VITE_COGNITO_DOMAIN`. The operator runs `terraform output` on the Cognito User Pool Domain resource to wire it into `.env`. (Could be plumbed through Terraform, but not done yet.)
-- **Cross-module wiring TODO** — there is no root `main.tf` that orchestrates the nested `*.tf` modules; all the `*_ARN`/`*_ID` variables must be supplied via `terraform apply -var` or a tfvars file. The empty root `variables.tf` predates this repo, and adding the API Gateway did not fix it.
+- **Cross-module wiring TODO** — there is no root `main.tf` that orchestrates the nested `*.tf` modules; all the `*_ARN`/`*_ID` variables must be supplied via `terraform apply -var` or a tfvars file. **Resolved** by the infra/ merge — everything now sits in one root module under `infra/`.
 - **Dev-mode CORS** — the API Gateway allow-list is restricted to the CloudFront origin. Local Vite dev needs either a Terraform workspace with relaxed CORS, or the dev-server proxy in `vite.config.js` filled in with the actual CloudFront URL.
 - **No silent idToken refresh** yet. ~1h after login the SPA gets `401`s from API Gateway; no auto-redirect or refresh flow is implemented.
 - **`CHATS`/`CONV#` rows** keyed under old `idToken` values will coexist with new `sub`-keyed rows until cleaned up. No migration script.

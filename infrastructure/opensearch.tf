@@ -79,6 +79,6 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
         "aoss:DescribeCollectionItems"
       ]
     }]
-    Principal = [var.parse_listing_role_ARN, aws_iam_role.bedrock_kb_role.ARN]
+    Principal = [aws_iam_role.lambda_parse_listing_role.arn, aws_iam_role.bedrock_kb_role.arn]
   }])
 }

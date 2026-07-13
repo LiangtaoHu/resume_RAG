@@ -1,25 +1,21 @@
-resource "aws_iam_role" "cognito_sns_role" {
-  name = "CognitoSNSRole"
-  assume_role_policy = aws_iam_policy_document.cognito_trust_policy.json
+resource "aws_iam_role" "cognito_service_role" {
+    name = "cognito-sns-role"
+    assume_role_policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [{
+            Effect = "Allow"
+            Action = "sts:AssumeRole"
+            Principal = { Service = "cognito-idp.amazonaws.com"}
+            Condition = {
+              StringEquals = {
+                "sts:ExternalId" = var.SNS_external_ID
+              }
+            }
+        }]
+    })
 }
 
-data "aws_iam_policy_document" "cognito_trust_policy" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    effect = "Allow"
-    principals {
-      type = "Service"
-      identifiers = ["cognito-idp.amazonaws.com"]
-    }
-    condition {
-      test = "StringEquals"
-      variable = "sts:ExternalId"
-      values = [var.SNS_external_ID]
-    }
-  }
-}
-
-data "aws_iam_policy_document" "sns_publish_policy_doc" {
+data "aws_iam_policy_document" "cognito_sns_publish_statement" {
   statement {
     effect = "Allow"
     actions = ["sns:Publish"]
@@ -28,13 +24,16 @@ data "aws_iam_policy_document" "sns_publish_policy_doc" {
 }
 
 // Cognito SNS role w/ trust policy to use SMS messaging 
-resource "aws_iam_role_policy" "attach_SNS_policy" {
-  name = "CognitoSNSPublishPolicy"
-  role = aws_iam_role.cognito_sns_role.id
-  policy = data.aws_iam_policy_document.sns_publish_policy_doc.json
+resource "aws_iam_policy" "cognito_sns_publish_policy" {
+  name = "sns-publish-policy"
+  policy = data.aws_iam_policy_document.cognito_sns_publish_statement.json
 }
 
-// Creating a User Pool
+resource "aws_iam_role_policy_attachment" "cognito_sns_publish_attachment" {
+  role = aws_iam_role.cognito_service_role.name
+  policy_arn =  aws_iam_policy.cognito_sns_publish_policy.arn
+}
+
 resource "aws_cognito_user_pool" "user_pool" {
     name = "client-users"
     alias_attributes = ["preferred_username", "email"]
@@ -72,7 +71,7 @@ resource "aws_cognito_user_pool" "user_pool" {
     sms_configuration {
       // Used for MFA and confirming this is your phone during SMS user verification
       external_id = var.SNS_external_ID
-      sns_caller_arn = aws_iam_role.cognito_sns_role.arn
+      sns_caller_arn = aws_iam_role.cognito_service_role.arn
     }
 }
 
@@ -86,7 +85,7 @@ resource "aws_cognito_user_pool_client" "user_pool_client" {
   user_pool_id = aws_cognito_user_pool.user_pool.id
   allowed_oauth_flows_user_pool_client = true
   callback_urls = [
-    "https://${var.cloudfront_domain_name}/callback" # TODO: Add a callback page to the S3 bucket to handle codes and exchange them for tokens!!
+    "https://${aws_cloudfront_distribution.cloudfront_distribution.domain_name}/callback" # TODO: Add a callback page to the S3 bucket to handle codes and exchange them for tokens!!
   ]
   allowed_oauth_flows = ["code"]
   allowed_oauth_scopes = ["openid", "email", "phone"]

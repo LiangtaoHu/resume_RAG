@@ -1,42 +1,29 @@
 data "aws_partition" "curr_partition" {}
-data "aws_region" "curr_region" {}
 
-// Knowledge base execution role
+/* ========================================================================== */
+/* Bedrock Knowledge Base                                                     */
+/* ========================================================================== */
 resource "aws_iam_role" "bedrock_kb_role" {
-    name = "kb-exec-role"
-    assume_role_policy = data.aws_iam_policy_document.bedrock_trust_policy.json
+    name = "bedrock-kb-exec-role"
+    assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "bedrock.amazonaws.com" }
+    }]
+  })
 }
 
-// Trust Policy
-data "aws_iam_policy_document" "bedrock_trust_policy" {
-  statement {
-    effect = "Allow"
-    actions = ["sts:AssumeRole"]
-    principals {
-      type = "Service"
-      identifiers = ["bedrock.amazonaws.com"]
-    }
-  }
-}
-
-data "aws_iam_policy_document" "bedrock_kb_role_policy" {
-    statement {
-        sid = "InvokeParseListingLambda"
-        effect = "Allow"
-        actions = ["lambda:InvokeFunction"]
-        resources = [
-          var.parse_listing_ARN,
-          "${var.parse_listing_ARN}:*"
-        ]
-    }
-
+data "aws_iam_policy_document" "bedrock_kb_statement" {
+    // Access to OpenSearch collection
     statement {
         sid = "OpenSearchAccess"
         effect = "Allow"
-        actions = ["aoss:APIAccessService"]
+        actions = ["aoss:APIAccessAll"]
         resources = [aws_opensearchserverless_collection.vector_db.arn]
     }
-
+    // Convert User Request to Embeddings during RAG
     statement {
         sid = "BedrockEmbeddingAccess"
         effect = "Allow"
@@ -45,13 +32,16 @@ data "aws_iam_policy_document" "bedrock_kb_role_policy" {
     }
 }
 
-resource "aws_iam_role_policy" "bedrock_kb_permissions_attachment" {
-  name = "kb-exec-permissions"
-  role = aws_iam_role.bedrock_kb_role.id
-  policy = aws_iam_policy_document.bedrock_kb_role_policy.json
+resource "aws_iam_policy" "bedrock_kb_policy" {
+  name = "bedrock-kb-exec-permissions"
+  policy = data.aws_iam_policy_document.bedrock_kb_statement.json
 }
 
-// Creating the knowledge base
+resource "aws_iam_role_policy_attachment" "bedrock_kb_attachment" {
+  role = aws_iam_role.bedrock_kb_role.name
+  policy_arn =  aws_iam_policy.bedrock_kb_policy.arn
+}
+
 resource "aws_bedrockagent_knowledge_base" "rag_kb" {
     name = "resume-knowledge-base"
     description = "This will connect all the files needed for resume optimization"
@@ -78,13 +68,22 @@ resource "aws_bedrockagent_knowledge_base" "rag_kb" {
     }
 }
 
-// Creating Bedrock Agent's role now
+/* ========================================================================== */
+/* Bedrock Agent                                                              */
+/* ========================================================================== */
 resource "aws_iam_role" "bedrock_agent_role" {
     name = "bedrock-agent-exec-role"
-    assume_role_policy = data.aws_iam_policy_document.bedrock_trust_policy
+    assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "bedrock.amazonaws.com" }
+    }]
+  })
 }
 
-data "aws_iam_policy_document" "agent_permissions" {
+data "aws_iam_policy_document" "bedrock_agent_statement" {
     statement {
       sid = "InvokeFoundationalModel"
       actions = ["bedrock:InvokeModel"]
@@ -93,16 +92,21 @@ data "aws_iam_policy_document" "agent_permissions" {
     statement {
       sid = "AllowAgentToQueryKB"
       actions = ["bedrock:Retrieve"]
-      resources = [aws_bedrockagent_knowledge_base.rag_kb.ARN]
+      resources = [aws_bedrockagent_knowledge_base.rag_kb.arn]
     }
 }
 
-resource "aws_iam_role_policy" "agent_permission_attachment" {
-  policy = data.aws_iam_policy_document.agent_permissions.json
-  role   = aws_iam_role.bedrock_agent_role.id
+resource "aws_iam_policy" "bedrock_agent_policy" {
+  name = "bedrock-agent-exec-policy"
+  policy = data.aws_iam_policy_document.bedrock_agent_statement.json
 }
 
-resource "aws_bedrockagent_agent" "resume-agent" {
+resource "aws_iam_role_policy_attachment" "bedrock_agent_attachment" {
+  role = aws_iam_role.bedrock_agent_role.name
+  policy_arn =  aws_iam_policy.bedrock_agent_policy.arn
+}
+
+resource "aws_bedrockagent_agent" "resume_agent" {
   agent_name                  = "resume-optimizer"
   agent_resource_role_arn     = aws_iam_role.bedrock_agent_role.arn
   idle_session_ttl_in_seconds = 300
@@ -119,8 +123,8 @@ resource "aws_bedrockagent_agent" "resume-agent" {
 }
 
 // Linking the two together, KB and Agent
-resource "aws_bedrockagent_agent_knowledge_base_association" "kb_agent_association" {
-  agent_id = aws_bedrockagent_agent.resume-agent.id
+resource "aws_bedrockagent_agent_knowledge_base_association" "bedrock_kb_agent_association" {
+  agent_id = aws_bedrockagent_agent.resume_agent.id
   knowledge_base_id = aws_bedrockagent_knowledge_base.rag_kb.id
   description = "Use this knowledge base to access and retrieve specific job listings and their requirements"
   knowledge_base_state = "ENABLED"

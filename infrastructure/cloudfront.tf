@@ -1,25 +1,4 @@
 // Static Hosting + CloudFront distribution
-
-resource "aws_lambda_function_url" "upload_resume_url" {
-    authorization_type = "AWS_IAM"
-    function_name = var.upload_resume_ARN
-}
-
-resource "aws_lambda_function_url" "parse_listing_url" {
-    authorization_type = "AWS_IAM"
-    function_name = var.parse_listing_ARN
-}
-
-resource "aws_lambda_function_url" "message_url" {
-    authorization_type = "AWS_IAM"
-    function_name = var.message_ARN
-}
-
-resource "aws_lambda_function_url" "view_data_url" {
-    authorization_type = "AWS_IAM"
-    function_name = var.view_data_ARN
-}
-
 locals {
     s3_origin_id = "static-s3-origin"
     upload_resume_id = "lambda-upload-url"
@@ -28,37 +7,36 @@ locals {
     view_data_id = "lambda-view-user-data"
     my_domain = "customdomain.com"
 
+    no_caching_policy = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    all_viewer_except_host = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+    all_viewer = "216adef6-5c7f-47e4-b989-5492eafa07d3"
+    caching_optimized = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+}
+
+resource "aws_lambda_function_url" "upload_resume" {
+    authorization_type = "AWS_IAM"
+    function_name = aws_lambda_function.lambda_upload_resume_func.arn
+}
+
+resource "aws_lambda_function_url" "parse_listing" {
+    authorization_type = "AWS_IAM"
+    function_name = aws_lambda_function.lambda_parse_listing_func.arn
+}
+
+resource "aws_lambda_function_url" "message_bedrock" {
+    authorization_type = "AWS_IAM"
+    function_name = aws_lambda_function.lambda_message_bedrock_func.arn
+}
+
+resource "aws_lambda_function_url" "conversation_starter" {
+    authorization_type = "AWS_IAM"
+    function_name = aws_lambda_function.lambda_conversation_starter_func.arn
 }
 
 // TODO: Create ACM Certificate 
 data "aws_acm_certificate" "issued_cert" {
     domain = "*.${local.my_domain}"
     statuses = ["ISSUED"]
-}
-
-resource "aws_s3_bucket" "website_bucket" {
-    bucket = "liangtaohu-website-bucket"
-}
-
-data "aws_iam_policy_document" "allow_CloudFront_Read" {
-    statement {
-        principals {
-            type = "Service"
-            identifiers = ["cloudfront.amazonaws.com"]
-        }
-        actions = ["s3:GetObject"]
-        resources = ["${aws_s3_bucket.website_bucket.arn}/*"]
-        condition {
-            test     = "StringEquals"
-            variable = "AWS:SourceArn"
-            values = [aws_cloudfront_distribution.cloudfront_distribution.arn]
-        }
-    }
-}
-
-resource "aws_s3_bucket_policy" "website_bucket_policy" {
-    bucket = aws_s3_bucket.website_bucket.id
-    policy = data.aws_iam_policy_document.allow_CloudFront_Read.json
 }
 
 resource "aws_cloudfront_origin_access_control" "cloudfront_oac" {
@@ -86,25 +64,25 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
     }
     // Upload Resume origin
     origin {
-      domain_name = replace(replace(aws_lambda_function_url.upload_resume_url.function_url, "https://", ""), "/", "")
+      domain_name = replace(replace(aws_lambda_function_url.upload_resume.function_url, "https://", ""), "/", "")
       origin_id = local.upload_resume_id
       origin_access_control_id = aws_cloudfront_origin_access_control.lambda_oac.id
     }
     // Parse Listing origin
     origin {
-      domain_name = replace(replace(aws_lambda_function_url.parse_listing_url.function_url, "https://", ""), "/", "")
+      domain_name = replace(replace(aws_lambda_function_url.parse_listing.function_url, "https://", ""), "/", "")
       origin_id = local.parse_listing_id
       origin_access_control_id = aws_cloudfront_origin_access_control.lambda_oac.id
     }
     // Message origin
     origin {
-        domain_name = replace(replace(aws_lambda_function_url.message_url.function_url, "https://", ""), "/", "")
+        domain_name = replace(replace(aws_lambda_function_url.message_bedrock.function_url, "https://", ""), "/", "")
         origin_id = local.message_id
         origin_access_control_id = aws_cloudfront_origin_access_control.lambda_oac.id
     }
     // view_data origin
     origin {
-        domain_name = replace(replace(aws_lambda_function_url.view_data_url.function_url, "https://", ""), "/", "")
+        domain_name = replace(replace(aws_lambda_function_url.conversation_starter.function_url, "https://", ""), "/", "")
         origin_id = local.view_data_id
         origin_access_control_id = aws_cloudfront_origin_access_control.lambda_oac.id
     }
@@ -120,11 +98,11 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         allowed_methods = ["GET", "HEAD", "OPTIONS"]
         path_pattern = "/api/v1/upload_resume"
         // Could we configure this to the length of time the presigned URL is valid? In order to prevent mass creation.
-        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
-        origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewer Except Host header
+        cache_policy_id =  local.no_caching_policy
+        origin_request_policy_id = local.all_viewer_except_host
         lambda_function_association {
           event_type = "viewer-request"
-          lambda_arn = "${var.check_auth_ARN}"
+          lambda_arn = "${aws_lambda_function.lambda_at_edge_check_auth_func.arn}"
         }
     }
 
@@ -135,11 +113,11 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         cached_methods = ["GET", "HEAD"]
         allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
         path_pattern = "/api/v1/parse_listing"
-        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
-        origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewer
+        cache_policy_id = local.no_caching_policy
+        origin_request_policy_id = local.all_viewer
         lambda_function_association {
           event_type = "viewer-request"
-          lambda_arn = var.check_auth_ARN
+          lambda_arn = aws_lambda_function.lambda_at_edge_check_auth_func.arn
         }
     }
 
@@ -149,11 +127,11 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         cached_methods = ["GET", "HEAD"]
         allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
         path_pattern = "/api/v1/message"
-        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
-        origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewerExceptHost
+        cache_policy_id = local.no_caching_policy
+        origin_request_policy_id = local.all_viewer_except_host
         lambda_function_association {
           event_type = "viewer-request"
-          lambda_arn = var.check_auth_ARN
+          lambda_arn = aws_lambda_function.lambda_at_edge_check_auth_func.arn
         }
     }
 
@@ -163,11 +141,11 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         cached_methods = ["GET", "HEAD"]
         allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "PATCH", "POST", "DELETE"]
         path_pattern = "/api/v1/view_data"
-        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
-        origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewerExceptHost
+        cache_policy_id = local.no_caching_policy
+        origin_request_policy_id = local.all_viewer_except_host
         lambda_function_association {
           event_type = "viewer-request"
-          lambda_arn = var.check_auth_ARN
+          lambda_arn = aws_lambda_function.lambda_at_edge_check_auth_func.arn
         }
     }
 
@@ -177,11 +155,11 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         cached_methods = ["GET", "HEAD"]
         allowed_methods = ["GET", "HEAD"]
         path_pattern = "/callback"
-        cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"        // No caching
-        origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"   // AllViewer
+        cache_policy_id = local.no_caching_policy
+        origin_request_policy_id = local.all_viewer
         lambda_function_association {
           event_type = "viewer-request"
-          lambda_arn = var.parse_auth_ARN
+          lambda_arn = aws_lambda_function.lambda_at_edge_check_auth_func.arn
         }
     }
     // Main Page
@@ -191,8 +169,8 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
         cached_methods = ["GET", "HEAD"]
         allowed_methods = ["GET", "HEAD"]
         path_pattern = "/"
-        cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"        // Caching Optimized
-        origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"   // AllViewer
+        cache_policy_id = local.caching_optimized
+        origin_request_policy_id = local.all_viewer
     }
 
     default_cache_behavior {
@@ -200,8 +178,8 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
       cached_methods = ["GET", "HEAD"]
       target_origin_id = local.s3_origin_id
       viewer_protocol_policy = "redirect-to-https"
-      origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"   // AllViewer Except Host header
-      cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"        // Caching Optimized, every other part of the S3 origin should be cached. The entire layout is the same, the data just isn't (lambda origin response)
+      origin_request_policy_id = local.all_viewer_except_host
+      cache_policy_id = local.caching_optimized // Caching Optimized, every other part of the S3 origin should be cached. The entire layout is the same, the data just isn't (lambda origin response)
     }
 
     restrictions {
@@ -212,7 +190,7 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
     }
 
     viewer_certificate {
-        acm_certificate_arn = aws_acm_certificate.cert.arn
+        acm_certificate_arn = data.aws_acm_certificate.issued_cert.arn
         ssl_support_method = "sni-only"
     }
 

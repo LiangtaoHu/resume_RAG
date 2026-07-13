@@ -1,4 +1,4 @@
 langchain_env/
-.virtual_env/
-./infrastructure/.terraform/
-./infrastructure/.terraform.lock.hcl
+virtual_env/
+infrastructure/.terraform/
+infrastructure/.terraform.lock.hcl

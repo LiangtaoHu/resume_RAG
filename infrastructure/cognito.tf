@@ -85,7 +85,7 @@ resource "aws_cognito_user_pool_client" "user_pool_client" {
   user_pool_id = aws_cognito_user_pool.user_pool.id
   allowed_oauth_flows_user_pool_client = true
   callback_urls = [
-    "https://${aws_cloudfront_distribution.cloudfront_distribution.domain_name}/callback" # TODO: Add a callback page to the S3 bucket to handle codes and exchange them for tokens!!
+    "https://${aws_cloudfront_distribution.cloudfront_distribution.domain_name}/callback"
   ]
   allowed_oauth_flows = ["code"]
   allowed_oauth_scopes = ["openid", "email", "phone"]

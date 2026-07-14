@@ -83,7 +83,7 @@ resource "aws_api_gateway_integration" "message_bedrock" {
 resource "aws_lambda_permission" "message_bedrock_permission" {
   statement_id  = "rest-api-invoke-message-bedrock"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lambda_message_bedrock_func
+  function_name = aws_lambda_function.lambda_message_bedrock_func.arn
   principal     = "apigateway.amazonaws.com"
   source_arn = "${aws_api_gateway_rest_api.rest_api.execution_arn}/*/POST/api/message_bedrock"
 }
@@ -153,34 +153,44 @@ resource "aws_lambda_permission" "conversation_starter_permissions" {
   principal     = "apigateway.amazonaws.com"
   source_arn = "${aws_api_gateway_rest_api.rest_api.execution_arn}/*/GET/api/conversation_starter"
 }
+/* ========================================================================== */
+/* Redirect in case of failed authorization                                   */
+/* ========================================================================== */
+resource "aws_api_gateway_gateway_response" "failed_auth" {
+    rest_api_id = aws_api_gateway_rest_api.rest_api.id
+    status_code = "302"
+    response_type = "UNAUTHORIZED"
+
+    response_parameters = {
+        "gatewayresponse.header.Location" = "'https://${aws_cognito_user_pool_domain.user_pool_domain.domain}.auth.${data.aws_region.curr_region.region}://${aws_cognito_user_pool_client.user_pool_client.id}&response_type=code&response_type=code&redirect_uri=https://${aws_cloudfront_distribution.cloudfront_distribution.domain_name}/callback'"
+    }
+}
 
 // Finalizing it all
 resource "aws_api_gateway_deployment" "rest_api" {
     rest_api_id = aws_api_gateway_rest_api.rest_api.id
     triggers = {
-        redeployment = {
-            api_structure = sha1(jsonencode([
-                aws_api_gateway_resource.api_prefix,
-                aws_api_gateway_resource.parse_listing,
-                aws_api_gateway_resource.message_bedrock,
-                aws_api_gateway_resource.upload_resume,
-                aws_api_gateway_resource.conversation_starter,
-                aws_api_gateway_method.parse_listing,
-                aws_api_gateway_method.message_bedrock,
-                aws_api_gateway_method.upload_resume,
-                aws_api_gateway_method.conversation_starter,
-                aws_api_gateway_integration.parse_listing,
-                aws_api_gateway_integration.message_bedrock,
-                aws_api_gateway_integration.upload_resume,
-                aws_api_gateway_integration.conversation_starter,
-            ]))
-            lambda_definitions = join(",", [
-                aws_lambda_function.lambda_parse_listing_func.source_code_hash,
-                aws_lambda_function.lambda_conversation_starter_func.source_code_hash,
-                aws_lambda_function.lambda_message_bedrock_func.source_code_hash,
-                aws_lambda_function.lambda_upload_resume_func.source_code_hash,
-            ])
-        }
+        api_structure = sha1(jsonencode([
+            aws_api_gateway_resource.api_prefix,
+            aws_api_gateway_resource.parse_listing,
+            aws_api_gateway_resource.message_bedrock,
+            aws_api_gateway_resource.upload_resume,
+            aws_api_gateway_resource.conversation_starter,
+            aws_api_gateway_method.parse_listing,
+            aws_api_gateway_method.message_bedrock,
+            aws_api_gateway_method.upload_resume,
+            aws_api_gateway_method.conversation_starter,
+            aws_api_gateway_integration.parse_listing,
+            aws_api_gateway_integration.message_bedrock,
+            aws_api_gateway_integration.upload_resume,
+            aws_api_gateway_integration.conversation_starter,
+        ]))
+        lambda_definitions = join(",", [
+            aws_lambda_function.lambda_parse_listing_func.source_code_hash,
+            aws_lambda_function.lambda_conversation_starter_func.source_code_hash,
+            aws_lambda_function.lambda_message_bedrock_func.source_code_hash,
+            aws_lambda_function.lambda_upload_resume_func.source_code_hash,
+        ])
     }
     lifecycle {
         create_before_destroy = true

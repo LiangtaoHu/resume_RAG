@@ -287,55 +287,59 @@ resource "aws_lambda_function" "lambda_message_bedrock_func" {
 
 /* ========================================================================== */
 /* Lambda@Edge Functions (Check/Parse Auth)                                   */
+/* Not in use because, we've changed to an API Gateway validation system and  */
+/* A client side request to inject the correct code into our local storage    */
+/* then redirect                                                              */
 /* ========================================================================== */
-data "aws_iam_policy_document" "lambda_at_edge_statement" {
-    statement {
-        actions = ["sts:AssumeRole"]
-        principals {
-          type = "Service"
-          identifiers = ["lambda.amazonaws.com", "edgelambda.amazonaws.com"]
-        }
-    }
-}
 
-resource "aws_iam_role" "lambda_at_edge_role" {
-    name = "lambda-at-edge-role"
-    assume_role_policy = data.aws_iam_policy_document.lambda_at_edge_statement.json
-}
+# data "aws_iam_policy_document" "lambda_at_edge_statement" {
+#     statement {
+#         actions = ["sts:AssumeRole"]
+#         principals {
+#           type = "Service"
+#           identifiers = ["lambda.amazonaws.com", "edgelambda.amazonaws.com"]
+#         }
+#     }
+# }
 
-data "archive_file" "lambda_at_edge_check_auth_file" {
-    type = "zip"
-    source_file = "${path.module}/../lambda/authorization/check_auth.py"
-    output_path = "${path.module}/../lambda/authorization/check_auth.zip"
-}
+# resource "aws_iam_role" "lambda_at_edge_role" {
+#     name = "lambda-at-edge-role"
+#     assume_role_policy = data.aws_iam_policy_document.lambda_at_edge_statement.json
+# }
 
-resource "aws_lambda_function" "lambda_at_edge_check_auth_func" {
-    filename = data.archive_file.lambda_at_edge_check_auth_file.output_path
-    function_name = "check-auth-at-edge"
-    role = aws_iam_role.lambda_at_edge_role.arn
-    handler = "check_auth.lambda_handler"
-    code_sha256 = data.archive_file.lambda_at_edge_check_auth_file.output_base64sha256
+# data "archive_file" "lambda_at_edge_check_auth_file" {
+#     type = "zip"
+#     source_file = "${path.module}/../lambda/authorization/check_auth.py"
+#     output_path = "${path.module}/../lambda/authorization/check_auth.zip"
+# }
 
-    provider = aws.us_east_1
-    publish = true
-}
+# resource "aws_lambda_function" "lambda_at_edge_check_auth_func" {
+#     filename = data.archive_file.lambda_at_edge_check_auth_file.output_path
+#     function_name = "check-auth-at-edge"
+#     role = aws_iam_role.lambda_at_edge_role.arn
+#     handler = "check_auth.lambda_handler"
+#     code_sha256 = data.archive_file.lambda_at_edge_check_auth_file.output_base64sha256
 
-data "archive_file" "lambda_at_edge_parse_auth_file" {
-    type = "zip"
-    source_file = "${path.module}/../lambda/authorization/parse_auth.py"
-    output_path = "${path.module}/../lambda/authorization/parse_auth.zip"
-}
+#     provider = aws.us_east_1
+#     publish = true
+# }
 
-resource "aws_lambda_function" "lambda_at_edge_parse_auth_func" {
-    filename = data.archive_file.lambda_at_edge_parse_auth_file.output_path
-    function_name = "parse-auth-at-edge"
-    role = aws_iam_role.lambda_at_edge_role.arn
-    handler = "parse_auth.lambda_handler"
-    code_sha256 = data.archive_file.lambda_at_edge_parse_auth_file.output_base64sha256
+# data "archive_file" "lambda_at_edge_parse_auth_file" {
+#     type = "zip"
+#     source_file = "${path.module}/../lambda/authorization/parse_auth.py"
+#     output_path = "${path.module}/../lambda/authorization/parse_auth.zip"
+# }
 
-    provider = aws.us_east_1
-    publish = true
-}
+# resource "aws_lambda_function" "lambda_at_edge_parse_auth_func" {
+#     filename = data.archive_file.lambda_at_edge_parse_auth_file.output_path
+#     function_name = "parse-auth-at-edge"
+#     role = aws_iam_role.lambda_at_edge_role.arn
+#     handler = "parse_auth.lambda_handler"
+#     code_sha256 = data.archive_file.lambda_at_edge_parse_auth_file.output_base64sha256
+
+#     provider = aws.us_east_1
+#     publish = true
+# }
 
 /* ========================================================================== */
 /* S3 Event Trigger Lambda Functions (alert_dynamo_link/add_dynamo_resume)    */

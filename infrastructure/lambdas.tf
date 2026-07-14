@@ -286,6 +286,60 @@ resource "aws_lambda_function" "lambda_message_bedrock_func" {
 }
 
 /* ========================================================================== */
+/* Delete Entries Lambda Function                                             */
+/* ========================================================================== */
+resource "aws_iam_role" "lambda_delete_entries_role" {
+  name = "lambda_message_agent_role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+}
+
+data "aws_iam_policy_document" "lambda_delete_entries_statement" {
+  statement {
+    effect = "Allow"
+    actions = ["dynamodb:delete_item"]
+    resources = [aws_dynamodb_table.res_opt_dynamodb_table.arn]
+  }
+}
+
+resource "aws_iam_policy" "lambda_delete_entries_policy" {
+  name = "lambda_delete_entries_policy"
+  policy = data.aws_iam_policy_document.lambda_delete_entries_statement.json
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_delete_entries_attachment" {
+  role = aws_iam_role.lambda_delete_entries_role.name
+  policy_arn =  aws_iam_policy.lambda_delete_entries_policy.arn
+}
+
+data "archive_file" "lambda_delete_entries_file" {
+    type = "zip"
+    source_file = "${path.module}/../lambda/delete_entries/delete_entry.py"
+    output_path = "${path.module}/../lambda/delete_entries/delete_entry.zip"
+}
+
+resource "aws_lambda_function" "lambda_message_bedrock_func" {
+    filename = data.archive_file.lambda_delete_entries_file.output_path
+    function_name = "lambda-delete-entries"
+    role = aws_iam_role.lambda_delete_entries_role.arn
+    handler = "message_bedrock.handler"
+    source_code_hash = data.archive_file.lambda_delete_entries_file.output_base64sha256
+    runtime = "python3.9"
+    environment {
+      variables = {
+        DYNAMO_DB_TABLE = aws_dynamodb_table.res_opt_dynamodb_table.id
+      }
+    }
+    tags = {}
+}
+
+/* ========================================================================== */
 /* Lambda@Edge Functions (Check/Parse Auth)                                   */
 /* Not in use because, we've changed to an API Gateway validation system and  */
 /* A client side request to inject the correct code into our local storage    */

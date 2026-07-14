@@ -324,7 +324,7 @@ data "archive_file" "lambda_delete_entries_file" {
     output_path = "${path.module}/../lambda/delete_entries/delete_entry.zip"
 }
 
-resource "aws_lambda_function" "lambda_message_bedrock_func" {
+resource "aws_lambda_function" "lambda_delete_entries_func" {
     filename = data.archive_file.lambda_delete_entries_file.output_path
     function_name = "lambda-delete-entries"
     role = aws_iam_role.lambda_delete_entries_role.arn

@@ -26,25 +26,12 @@ dynamo_client = boto3.resource("dynamodb", region_name=REGION_NAME)
 table = dynamo_client.Table("res-optimizer-user-data")
 
 def lambda_handler(event, context):
-    raw_headers = event.get("headers", {})
-    headers = {k.lower(): v for k, v in raw_headers.items()}
-    cookies = {}
-    if "cookie" in headers:
-        # Loop through all the cookies
-        for cookie in headers["cookie"]:
-            # We are mainly interested in the value as the key for each is just "cookie"
-            # The value can be multi-cookie per actual cookie, with a separator of ";"
-            cookie_string = cookie.get("value", "")
-            for cookie_instance in cookie_string.split(";"):
-                # We split again on the equals sign
-                key, value = cookie_instance.split("=", 1)
-                cookies[key.strip()] = value.strip()
-    user_identity = cookies.get("idToken")
+    user_identity = event['requestContext']['authorizer']['claims']['sub']
     if not user_identity:
         return {
             "statusCode": 401,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": "Unauthorized: Missing identity header from ALB"})
+            "body": json.dumps({"error": "Unauthorized: Missing access token"})
         }
     try:
         # Extract the URL from the Lambda event payload

@@ -15,22 +15,7 @@ dynamo_table = dynamo_client.Table(DYNAMO_DB_TABLE)
 
 def handler(event, context):
     # Retrieving user_identity
-    raw_headers = event.get("headers", {})
-    headers = {k.lower(): v for k, v in raw_headers.items()}
-
-    cookies = {}
-    if "cookie" in headers:
-        # Loop through all the cookies
-        for cookie in headers["cookie"]:
-            # We are mainly interested in the value as the key for each is just "cookie"
-            # The value can be multi-cookie per actual cookie, with a separator of ";"
-            cookie_string = cookie.get("value", "")
-            for cookie_instance in cookie_string.split(";"):
-                # We split again on the equals sign
-                if "=" in cookie_instance:
-                    key, value = cookie_instance.split("=", 1)
-                    cookies[key.strip()] = value.strip()
-    user_identity = cookies.get("idToken")
+    user_identity = event['requestContext']['authorizer']['claims']['sub']
     if not user_identity:
         return {
             "statusCode": 401,

@@ -21,29 +21,12 @@ def derive_full_text(response):
             full_text += event["chunk"]["bytes"].decode('utf-8')
     return full_text
 
-def get_header_values(headers):
-    cookies = {}
-    if "cookie" in headers:
-        # Loop through all the cookies
-        for cookie in headers["cookie"]:
-            # We are mainly interested in the value as the key for each is just "cookie"
-            # The value can be multi-cookie per actual cookie, with a separator of ";"
-            cookie_string = cookie.get("value", "")
-            for cookie_instance in cookie_string.split(";"):
-                # We split again on the equals sign
-                if "=" in cookie_instance:
-                    key, value = cookie_instance.split("=", 1)
-                    cookies[key.strip()] = value.strip()
-    user_identity = cookies.get("idToken")
-    conversation_id = headers.get("conversation_id", "")
-    # TODO: Do we need to return in case there's no user_identity?
-    return user_identity, conversation_id
-
 def lambda_handler(event, context):
     # We are already authenticated
-    raw_headers = event.get("headers", {})
-    headers = {k.lower(): v for k, v in raw_headers.items()}
-    user_identity, conversation_id = get_header_values(headers)
+    user_identity = event['requestContext']['authorizer']['claims']['sub']
+    body = json.loads(event.get('body', '{}'))
+    conversation_id = body.get('conversation_id', "")
+
     # Conversation ID check
     response = dynamo_table.get_item(
         Key = {
@@ -55,8 +38,8 @@ def lambda_handler(event, context):
     chatHistory = conversation.get("chatHistory", [])
     resume_id = conversation.get("resumeID", "")
     if conversation == {}:
-        resume_id = headers.get("resume_id", "")
-        job_id = headers.get("job_id", "")
+        resume_id = body.get("resume_id", "")
+        job_id = body.get("job_id", "")
         # If either of these are empty strings, we cannot help you
         if not resume_id or not job_id:
             return {
@@ -90,7 +73,6 @@ def lambda_handler(event, context):
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"error": "Job id is invalid."})
         }
-    body = event.get("body", {})
     user_message = body.get("user_message", "")
     if user_message == "":
         return {
@@ -141,14 +123,12 @@ def lambda_handler(event, context):
                                 }
                             }]
                         }
-                        # implicit filtering?
-                        # number of results?
                     },
-                    # returnControlInvocationResults
                 }
             }]
         }
     )
+    # We should update chatHistory along with the full message from the AI. 
     return {
         'statusCode': 200,
         "headers": {"Content-Type": "application/json"},

@@ -6,8 +6,10 @@ import '../css/chats.css'
 
 function Chats() {
     const {userIdentity} = useAuthContext();
-    const [activeChatId, setActiveChatId] = useState(null)
-    const [chats, SetChats] = useState([])
+    const [activeConversation, setActiveConversation] = useState(null)
+    const [conversations, setConversations] = useState([])
+    const [listings, setListings] = useState([])
+    const [resumes, setResumes] = useState([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -23,8 +25,8 @@ function Chats() {
     }
 
     return <div className="chats-content">
-        <ChatSideBar onChatSelect={setActiveChatId} activeChatId={activeChatId}/>
-        <ChatWindow chatId={activeChatId} userIdentity={userIdentity}/>
+        <ChatSideBar onChatSelect={setActiveConversation} conversations={conversations} listings={listings} resumes={resumes}/>
+        <ChatWindow conversation={activeConversation} userIdentity={userIdentity}/>
     </div>
 }
 

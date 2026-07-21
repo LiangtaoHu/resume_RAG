@@ -1,6 +1,6 @@
 import '../css/Resumes.css'
 import FileSubmission from './components/FileSubmission'
-import Resume from './components/Resume'
+import Icon from './components/Icon'
 import { useEffect, useState } from 'react'
 import { useAuthContext } from '../contexts/AuthContext'
 
@@ -25,7 +25,7 @@ function Resumes() {
         <FileSubmission/>
         <div className="resume-grid">
             {resumes.map(resume => (
-                <Resume resume={resume} key={resume.id}/>
+                <Icon obj={resume} key={resume.id}/>
             ))}
         </div>
     </div>

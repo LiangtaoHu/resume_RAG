@@ -7,10 +7,11 @@ import Listings from './pages/Listings'
 import Resumes from './pages/Resumes'
 import Navbar from './components/Navbar'
 import GitFooter from './components/GitFooter'
+import { AuthProvider } from './contexts/AuthContext'
 
 function App() {
   return (
-    <>
+    <AuthProvider>
       <Navbar/>
       <main className="main-content">
         <Routes>
@@ -23,7 +24,7 @@ function App() {
         </Routes>
       </main>
       <GitFooter/>
-    </>
+    </AuthProvider>
   )
 }
 

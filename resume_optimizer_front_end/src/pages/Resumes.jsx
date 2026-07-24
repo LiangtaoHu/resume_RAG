@@ -5,16 +5,28 @@ import { useEffect, useState } from 'react'
 import { useAuthContext } from '../contexts/AuthContext'
 
 function Resumes() {
-    const { userIdentity } = useAuthContext();
+    const { token } = useAuthContext();
     const [resumes, setResumes] = useState([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         async function fetchResumes() {
-            if (!userIdentity) return
-            // TODO
+            if (!token) return
+            try {
+                const response = await fetch("/api/conversation_starter")
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json()
+                setResumes(result["data"]["resumes"])
+            } catch (err) {
+                setStatus(err)
+            } finally {
+                setLoading(false)
+            }
         }
-    }, [userIdentity])
+        fetchResumes()
+    }, [])
 
     if (loading) {
         return <div className="resume-loading">Loading Your Resumes.</div>

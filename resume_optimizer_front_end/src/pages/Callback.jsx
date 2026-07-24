@@ -5,6 +5,13 @@ function Callback() {
     useEffect(() => {
         async function fetchData() {
             //TODO:
+            try {
+                
+            } catch (err) {
+
+            } finally {
+                setText("Properly Validated. You may now go to the dashboard.")
+            }
         }
         fetchData();
     }, [])

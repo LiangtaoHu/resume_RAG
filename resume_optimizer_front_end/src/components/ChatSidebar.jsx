@@ -2,7 +2,7 @@ import "../css/ChatSidebar.css"
 import {useState} from 'react'
 import Icon from "./Icon.jsx"
 
-function ChatSidebar({setActiveConversations, conversations, listings, resumes}) {
+function ChatSidebar({setActiveConversation, conversations, listings, resumes}) {
     const [onSelection, setOnSelection] = useState(true)
     const [selectedConv, setSelectedConv] = useState(null)
     const [selectedListing, setSelectedListing] = useState(null)
@@ -10,12 +10,10 @@ function ChatSidebar({setActiveConversations, conversations, listings, resumes})
     const generateButtonCond = !(selectedListing && selectedResume)
     function handleGenerate() {
         //TODO
-        // Send API call to make conversation id
-        // Then allow chatwindow to have messaging with information passed there about the conversation id
     }
 
     function loadConversation() {
-        // Allow Chatwindow to have messaging with info about conv id to it w selectedConv
+        setActiveConversation(selectedConv)
     }
 
     return <div className="chat-sidebar">
@@ -44,3 +42,5 @@ function ChatSidebar({setActiveConversations, conversations, listings, resumes})
         </div>
     </div>
 }
+
+export default ChatSidebar

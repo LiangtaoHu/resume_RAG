@@ -4,18 +4,30 @@ import Table from './components/Table'
 import { useAuthContext } from '../contexts/AuthContext'
 
 function Listings() {
-    const {userIdentity} = useAuthContext();
+    const {token} = useAuthContext();
     const [listings, setListings] = useState([])
+    const [status, setStatus] = useState("")
     const [activeListing, setActiveListing] = useState(null)
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchListings() {
-            if (!userIdentity) return; 
-            //TODO
+            try {
+                if (!token) return; 
+                const response = await fetch('/api/conversation_starter')
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json()
+                setListings(result["data"]["job_listings"])
+            } catch (err) {
+                setStatus(err)
+            } finally {
+                setLoading(false)
+            }
         }
         fetchListings()
-    }, [userIdentity])
+    }, [])
 
     if (loading) {
         return <div className="listing-loading">Loading Your Listings</div>

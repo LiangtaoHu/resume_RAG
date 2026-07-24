@@ -16,7 +16,7 @@ function ChatWindow({activeConversation, userIdentity}) {
     return (
         <div className="chat-window">
             <ChatHistory messages={messages}/>
-            <MessageBox onSendMessage={handleAddMessage} userIdentity={userIdentity}/>
+            <MessageBox onSendMessage={handleAddMessage} userIdentity={userIdentity} activeConversation={activeConversation}/>
         </div>
     )
 }

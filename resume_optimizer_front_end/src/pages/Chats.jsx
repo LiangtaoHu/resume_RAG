@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuthContext } from '../contexts/AuthContext'
-import ChatSideBar from '../components/ChatSideBar'
+import ChatSideBar from '../components/ChatSidebar'
 import ChatWindow from '../components/ChatWindow'
 import '../css/chats.css'
 
 function Chats() {
-    const {userIdentity} = useAuthContext();
+    const {token} = useAuthContext();
     const [activeConversation, setActiveConversation] = useState(null)
     const [conversations, setConversations] = useState([])
     const [listings, setListings] = useState([])
@@ -14,11 +14,22 @@ function Chats() {
 
     useEffect(() => {
         async function loadUserChats() {
-            if (!userIdentity) return;
-            //TODO
+            try {
+                if (!token) return; 
+                const response = await fetch('/api/conversation_starter')
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json()
+                setConversations(result["data"]["conversations"])
+            } catch (err) {
+                setStatus(err)
+            } finally {
+                setLoading(false)
+            }
         }
         loadUserChats();
-    }, [userIdentity]);
+    }, []);
 
     if (loading) {
         return <div className="chats-loading">Loading your conversations</div>
@@ -26,7 +37,7 @@ function Chats() {
 
     return <div className="chats-content">
         <ChatSideBar onChatSelect={setActiveConversation} conversations={conversations} listings={listings} resumes={resumes}/>
-        <ChatWindow conversation={activeConversation} userIdentity={userIdentity}/>
+        <ChatWindow conversation={activeConversation} token={token}/>
     </div>
 }
 

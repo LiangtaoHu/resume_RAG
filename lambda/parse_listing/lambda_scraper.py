@@ -143,7 +143,13 @@ def lambda_handler(event, context):
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({
                 "message": "Job parsed and successfully saved to AWS OpenSearch.",
-                "data": response.model_dump()
+                "data": {
+                'HK': "USER#" + user_identity,
+                'SK': f"JOB#{response.company}-{response.position}",
+                'company': response.company,
+                'position': response.position,
+                'url': url
+                }
             })
         }
 

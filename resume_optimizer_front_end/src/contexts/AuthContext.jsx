@@ -1,27 +1,60 @@
-import {createContext, useState, useContext } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
-const AuthContext = createContext()
+export const AuthContext = createContext()
 
-export function useAuthContext() {
+export const useAuthContext = () => {
     return useContext(AuthContext)
-} 
+}
 
-export function AuthProvider({children}) {
+export const AuthProvider = ({ children }) => {
+  const [token, setToken] = useState(null)
+  const [userIdentity, setUserIdentity] = useState(null)
 
-    function initAuth() {
-        const token = localStorage.getItem("cognito_id_token")
-        const storedIdentity = localStorage.getItem("userIdentity")
+  const logout = () => {
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('userIdentity')
+    setToken(null)
+    setUserIdentity(null)
+  }
 
-        if (!token || !storedIdentity) {
-            localStorage.removeItem("cognito_id_token")
-            localStorage.removeItem("userIdentity")
-            return {token: null, userIdentity: null}
+  const login = (newToken) => {
+    try {
+        const decoded = jwtDecode(newToken)
+        const currentTime = Math.floor(Date.now()/1000)
+        if (decoded.exp < currentTime) {
+            logout()
+        } else {
+            setToken(newToken)
+            setUserIdentity(decoded.sub)
         }
+    } catch {
+        logout()
     }
+  }
 
+  const validateToken = () => {
+    if (!token) {
+        return false
+    }
+    try {
+        const decoded = jwtDecode(token)
+        const currentTime = Math.floor(Date.now()/1000)
+        if (decoded.exp < currentTime) {
+            logout()
+            return false
+        } else {
+            return true
+        }
+    } catch {
+        logout()
+        return false
+    }
+  }
 
-    return <AuthContext.Provider value={userIdentity}>
+  return (
+    <AuthContext.Provider value={{login, logout, userIdentity, token, validateToken}}>
         {children}
     </AuthContext.Provider>
-}
+  )
+};

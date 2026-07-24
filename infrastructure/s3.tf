@@ -3,7 +3,7 @@ resource "aws_s3_bucket" "resume_bucket" {
 }
 
 resource "aws_s3_bucket" "website_bucket" {
-    bucket = "liangtaohu-website-bucket"
+    bucket = "resumeoptimizerapp.com"
 }
 
 data "aws_iam_policy_document" "bucket_cloudfront_read_statement" {

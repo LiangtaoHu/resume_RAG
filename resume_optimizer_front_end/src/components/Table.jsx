@@ -37,24 +37,43 @@ function Table({token, listings, setListings}) {
         }
     }
 
-    function toggleDeleteMode() {
-        //TODO
-        //Upon press, you'll be able to select tickboxes next to listings (which just appear) and then press the confirm button that just appears
-    }
-
-    function toggleDelete() {
-        //TODO
-        //Adds a listing to a deleteObjs
+    function toggleDelete(listing) {
+        setDeleteObjs(prevObjs => [...prevObjs, listing])
     }
 
     function confirmDelete() {
         //TODO
         //Sends the API call to delete then removes shown listings
+        setIsSubmitting(true)
+        try {
+            deleteObjs.forEach(item => {
+                const response = fetch("/api/delete_entries", {
+                    method: "POST", 
+                    headers: {
+                        'Authorization': token, 
+                        'Content-type': 'application/json'
+                    },
+                    body: {
+                        "listing_id": JSON.stringify({deleteObjs})
+                    }
+                })
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+            })
+            setListings(listings.filter(item => !deleteObjs.includes(item)))
+            setDeleteObjs([])
+            setDeleteMode(false)
+        } catch(err) {
+            setStatus(err)
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     return (
         <div className="listing-table">
-            <TableHeader url={url} setUrl={setUrl} addFunc={addListing} deleteFunc={toggleDeleteMode} deleteMode={deleteMode} isSubmitting={isSubmitting} confirmDelete={confirmDelete}/>
+            <TableHeader url={url} setUrl={setUrl} addFunc={addListing} deleteFunc={setDeleteMode} deleteMode={deleteMode} isSubmitting={isSubmitting} confirmDelete={confirmDelete}/>
             <div className="listing-entries">
                 {listings.map(listing => (
                     <Listing listing={listing} key={listing.id} deleteMode={deleteMode} toggleDelete={toggleDelete}/>

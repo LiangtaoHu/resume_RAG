@@ -2,14 +2,22 @@ import "../css/ChatSidebar.css"
 import {useState} from 'react'
 import Icon from "./Icon.jsx"
 
-function ChatSidebar({setActiveConversation, conversations, listings, resumes}) {
+function ChatSidebar({setActiveConversation, conversations, listings, resumes, userIdentity, setConversations}) {
     const [onSelection, setOnSelection] = useState(true)
     const [selectedConv, setSelectedConv] = useState(null)
     const [selectedListing, setSelectedListing] = useState(null)
     const [selectedResume, setSelectedResume] = useState(null)
     const generateButtonCond = !(selectedListing && selectedResume)
     function handleGenerate() {
-        //TODO
+        new_chat_item = {
+            'HK': `USER#${userIdentity}`,
+            'SK': `CONV#${selectedResume.SK.replace("RESUME#", "")}-${selectedListing.SK.replace("JOB#", "")}`,
+            'resumeID': selectedResume.SK.replace("RESUME#", ""),
+            'jobID': selectedListing.SK.replace("JOB#", ""),
+            'chatHistory': {}
+        }
+        setConversations(prevConv => [...prevConv, new_chat_item])
+        setActiveConversation(new_chat_item)
     }
 
     function loadConversation() {

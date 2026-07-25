@@ -5,7 +5,7 @@ import ChatWindow from '../components/ChatWindow'
 import '../css/chats.css'
 
 function Chats() {
-    const {token} = useAuthContext();
+    const {token, userIdentity} = useAuthContext();
     const [activeConversation, setActiveConversation] = useState(null)
     const [conversations, setConversations] = useState([])
     const [listings, setListings] = useState([])
@@ -36,7 +36,7 @@ function Chats() {
     }
 
     return <div className="chats-content">
-        <ChatSideBar onChatSelect={setActiveConversation} conversations={conversations} listings={listings} resumes={resumes}/>
+        <ChatSideBar onChatSelect={setActiveConversation} conversations={conversations} listings={listings} resumes={resumes} userIdentity={userIdentity} setConversations={setConversations}/>
         <ChatWindow conversation={activeConversation} token={token}/>
     </div>
 }

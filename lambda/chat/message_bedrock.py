@@ -37,6 +37,7 @@ def lambda_handler(event, context):
     conversation = response.get("Item", {})
     chatHistory = conversation.get("chatHistory", [])
     resume_id = conversation.get("resumeID", "")
+    job_id = conversation.get("jobID", "")
     if conversation == {}:
         resume_id = body.get("resume_id", "")
         job_id = body.get("job_id", "")

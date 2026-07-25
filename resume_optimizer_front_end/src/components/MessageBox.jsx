@@ -25,8 +25,10 @@ function MessageBox({onSendMessage, token, activeConversation}) {
                     'Content-Type': 'application/json'
                 },
                 body: {
-                    "conversation_id": activeConversation,
-                    "user_message": userMessage
+                    "conversation_id": activeConversation.SK,
+                    "resume_id": activeConversation.resume_id,
+                    "job_id": activeConversation.job_id,
+                    "user_message": userMessage,
                 }
             })
             if (!response.ok) {

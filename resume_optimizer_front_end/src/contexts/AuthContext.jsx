@@ -27,6 +27,8 @@ export const AuthProvider = ({ children }) => {
         } else {
             setToken(newToken)
             setUserIdentity(decoded.sub)
+            localStorage.setItem('auth_token', newToken)
+            localStorage.setItem('userIdentity', decoded.sub)
         }
     } catch {
         logout()

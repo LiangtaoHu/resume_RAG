@@ -1,8 +1,13 @@
+data "aws_caller_identity" "current" {}
 // OpenSearch Serverless Collection as Vector Database
 resource "aws_opensearchserverless_collection" "vector_db" {
   name             = "resume-rag-database"
   type             = "VECTORSEARCH"
   description      = "Vector store for job listing contexts and resumes"
+
+  depends_on = [
+    aws_opensearchserverless_security_policy.encryption
+  ]
 }
 
 // Encryption policy, just defines that the resume-rag-database will be encrypted with AWS owned keys
@@ -14,11 +19,13 @@ resource "aws_opensearchserverless_security_policy" "encryption" {
   policy = jsonencode({
     Rules = [{
       ResourceType = "collection"
-      Resource     = ["collection/resume-rag-database"]
+      Resource     = ["collection/resume-rag-database*"]
     }]
     AWSOwnedKey = true
   })
 }
+
+
 
 // Network policy
 // It can be accessed from over the internet? or privately? In this case, we choose over the Internet
@@ -34,13 +41,13 @@ resource "aws_opensearchserverless_security_policy" "network" {
         {
           ResourceType = "collection"
           Resource = [
-            "collection/resume-rag-db"
+            "collection/resume-rag-database"
           ]
         }, 
         {
           ResourceType = "dashboard"
           Resource = [
-            "collection/resume-rag-db"
+            "collection/resume-rag-database"
           ]
         }
       ],
@@ -62,23 +69,96 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
     Rules = [
       {
       ResourceType = "index"
-      Resource     = ["index/resume-rag-db/*"]
+      Resource     = ["index/resume-rag-database/*"]
       Permission   = [
         "aoss:CreateIndex",
         "aoss:DescribeIndex",
         "aoss:ReadDocument",
-        "aoss:WriteDocument"
+        "aoss:WriteDocument",
+        "aoss:DeleteIndex"
       ]
     }, 
     {
       ResourceType = "collection"
-      Resource     = ["collection/resume-rag-db"]
+      Resource     = ["collection/resume-rag-database"]
       Permission   = [
         "aoss:CreateCollectionItems",
         "aoss:UpdateCollectionItems",
         "aoss:DescribeCollectionItems"
       ]
     }]
-    Principal = [aws_iam_role.lambda_parse_listing_role.arn, aws_iam_role.bedrock_kb_role.arn]
+    Principal = [aws_iam_role.lambda_parse_listing_role.arn, aws_iam_role.bedrock_kb_role.arn, data.aws_caller_identity.current.arn]
   }])
+}
+
+resource "null_resource" "resume_rag_index" {
+  # Recreate if the mapping definition changes
+  triggers = {
+    mapping_hash = sha256(jsonencode({
+      properties = {
+        "bedrock-vector" = {
+          type      = "knn_vector"
+          dimension = 1024
+          method = {
+            name       = "hnsw"
+            engine     = "faiss"
+            space_type = "l2"
+            parameters = {
+              m               = 16
+              ef_construction = 512
+            }
+          }
+        }
+        "bedrock-text"     = { type = "text" }
+        "bedrock-metadata" = { type = "text" }
+      }
+    }))
+    collection_endpoint = aws_opensearchserverless_collection.vector_db.collection_endpoint
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      RESPONSE=$(awscurl --service aoss --region us-east-1 -X PUT \
+        "${aws_opensearchserverless_collection.vector_db.collection_endpoint}/resume-rag-index" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "settings": {
+            "index.knn": true
+          },
+          "mappings": {
+            "properties": {
+              "bedrock-vector": {
+                "type": "knn_vector",
+                "dimension": 1024,
+                "method": {
+                  "name": "hnsw",
+                  "engine": "faiss",
+                  "space_type": "l2",
+                  "parameters": { "m": 16, "ef_construction": 512 }
+                }
+              },
+              "bedrock-text": { "type": "text" },
+              "bedrock-metadata": { "type": "text" }
+            }
+          }
+        }')
+      echo "$RESPONSE"
+      if echo "$RESPONSE" | grep -q '"error"'; then
+        echo "Index creation failed: $RESPONSE"
+        exit 1
+      fi
+    EOT
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "echo 'Note: manually delete index if needed'"
+  }
+
+  depends_on = [
+    aws_opensearchserverless_access_policy.data_access,
+    aws_opensearchserverless_collection.vector_db
+
+  ]
 }

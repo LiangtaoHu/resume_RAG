@@ -2,7 +2,7 @@
 locals {
     s3_origin_id = "static-s3-origin"
     api_gateway_origin_id = "api-gateway-origin"
-    my_domain = "resume-optimizer.com"
+    my_domain = "resumeoptimizerapp.com"
 
     no_caching_policy = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
     all_viewer_except_host = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
@@ -10,10 +10,10 @@ locals {
 }
 
 // TODO: Create ACM Certificate 
-data "aws_acm_certificate" "issued_cert" {
-    domain = "*.${local.my_domain}"
-    statuses = ["ISSUED"]
-}
+# data "aws_acm_certificate" "issued_cert" {
+
+#     statuses = ["ISSUED"]
+# }
 
 resource "aws_cloudfront_origin_access_control" "cloudfront_oac" {
     name = "cloudfront_oac"
@@ -76,7 +76,7 @@ resource "aws_cloudfront_distribution" "cloudfront_distribution" {
     }
 
     viewer_certificate {
-        acm_certificate_arn = data.aws_acm_certificate.issued_cert.arn
+        acm_certificate_arn = "arn:aws:acm:us-east-1:273354655761:certificate/053d7964-88f7-4a24-8354-3d52ed3f0c79"
         ssl_support_method = "sni-only"
     }
 

@@ -26,7 +26,7 @@ resource "null_resource" "Lambda_DockerFile_Update" {
       aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}
       
       # 2. Build the Docker image locally using the Dockerfile blueprint
-      docker build -t ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest -f ${path.module}/parse_listing/Dockerfile ${path.module}/parse_listing/
+      docker build -t ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest -f ${path.module}/../lambda/parse_listing/Dockerfile ${path.module}/../lambda/parse_listing/
       
       # 3. Push the image up to your AWS ECR Registry
       docker push ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest
@@ -225,7 +225,7 @@ resource "aws_lambda_function" "lambda_conversation_starter_func" {
 /* ========================================================================== */
 /* Message Bedrock Agent Lambda Function                                      */
 /* ========================================================================== */
-resource "aws_iam_role" "lambda_message_bedrock_role" {
+resource "aws_iam_role" "lambda_message_bedrock_resume_agent_role" {
   name = "lambda_message_agent_role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -251,13 +251,13 @@ resource "aws_iam_policy" "lambda_invoke_bedrock_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_invoke_bedrock_attachment" {
-  role = aws_iam_role.lambda_message_bedrock_role.name
+  role = aws_iam_role.lambda_message_bedrock_resume_agent_role.name
   policy_arn =  aws_iam_policy.lambda_invoke_bedrock_policy.arn
 }
 
 // Dynamo Policy (Get, Put, Query) was created before in parse_listing's section. We just need to attach.
 resource "aws_iam_role_policy_attachment" "lambda_dynamo_attachment_message_bedrock" {
-  role = aws_iam_role.lambda_message_bedrock_role.name
+  role = aws_iam_role.lambda_message_bedrock_resume_agent_role.name
   policy_arn = aws_iam_policy.lambda_dynamo_policy.arn
 }
 
@@ -270,7 +270,7 @@ data "archive_file" "lambda_message_bedrock_file" {
 resource "aws_lambda_function" "lambda_message_bedrock_func" {
     filename = data.archive_file.lambda_message_bedrock_file.output_path
     function_name = "lambda-message-bedrock"
-    role = aws_iam_role.lambda_message_bedrock_role.arn
+    role = aws_iam_role.lambda_message_bedrock_resume_agent_role.arn
     handler = "message_bedrock.handler"
     source_code_hash = data.archive_file.lambda_message_bedrock_file.output_base64sha256
     runtime = "python3.9"
@@ -289,7 +289,7 @@ resource "aws_lambda_function" "lambda_message_bedrock_func" {
 /* Delete Entries Lambda Function                                             */
 /* ========================================================================== */
 resource "aws_iam_role" "lambda_delete_entries_role" {
-  name = "lambda_message_agent_role"
+  name = "lambda_delete_entries_role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -460,6 +460,7 @@ resource "aws_s3_bucket_notification" "s3_alert_dynamo_link_notification" {
       lambda_function_arn = aws_lambda_function.lambda_s3_trigger_alert_dynamo_link_func.arn
       events = ["s3:ObjectCreated:*"]
     }
+    depends_on = [ aws_lambda_permission.allow_s3_to_invoke_trigger_link ]
 }
 
 data "archive_file" "lambda_s3_trigger_add_dynamo_resume_file" {
@@ -488,4 +489,21 @@ resource "aws_s3_bucket_notification" "aws_add_dynamo_resume" {
       lambda_function_arn = aws_lambda_function.lambda_s3_trigger_add_dynamo_resume_func.arn
       events = ["s3:ObjectCreated:*"]
     }
+    depends_on = [ aws_lambda_permission.allow_s3_to_invoke_add_resume ]
+}
+
+resource "aws_lambda_permission" "allow_s3_to_invoke_trigger_link" {
+  statement_id  = "AllowS3InvokeTriggerLink"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda_s3_trigger_alert_dynamo_link_func.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.resume_bucket.arn
+}
+
+resource "aws_lambda_permission" "allow_s3_to_invoke_add_resume" {
+  statement_id  = "AllowS3InvokeAddResume"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda_s3_trigger_add_dynamo_resume_func.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.resume_bucket.arn
 }

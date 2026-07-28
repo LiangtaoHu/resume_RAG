@@ -58,7 +58,7 @@ resource "aws_bedrockagent_knowledge_base" "rag_kb" {
       type = "OPENSEARCH_SERVERLESS"
       opensearch_serverless_configuration {
         collection_arn = aws_opensearchserverless_collection.vector_db.arn
-        vector_index_name = "resume-rag-database"
+        vector_index_name = "resume-rag-index"
         field_mapping {
           vector_field = "bedrock-vector"
           text_field = "bedrock-text"
@@ -66,6 +66,7 @@ resource "aws_bedrockagent_knowledge_base" "rag_kb" {
         }
       }
     }
+  depends_on = [null_resource.resume_rag_index]
 }
 
 /* ========================================================================== */
@@ -110,7 +111,7 @@ resource "aws_bedrockagent_agent" "resume_agent" {
   agent_name                  = "resume-optimizer"
   agent_resource_role_arn     = aws_iam_role.bedrock_agent_role.arn
   idle_session_ttl_in_seconds = 300
-  foundation_model            = "anthropic.claude-v2"
+  foundation_model            = "amazon.nova-pro-v1:0"
   instruction                 = "You are a professional at optimizing CS resumes to job applications. You will have access to a vector database which will contain the most important information about a job listing and a user resume. Your job is to edit the resume to increase the chance of being hired."
 
   memory_configuration {

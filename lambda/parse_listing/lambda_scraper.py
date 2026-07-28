@@ -124,7 +124,7 @@ def lambda_handler(event, context):
             use_ssl=True,
             verify_certs=True,
             connection_class=OpenSearchVectorSearch.get_connection_class(),
-            index_name="resume-rag-database"
+            index_name="resume-rag-index"
         )
 
         # Save to DynamoDB

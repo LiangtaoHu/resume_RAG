@@ -433,77 +433,40 @@ resource "aws_iam_role_policy_attachment" "lambda_s3_trigger_attachment" {
   policy_arn = aws_iam_policy.lambda_s3_trigger_policy.arn
 }
 
-data "archive_file" "lambda_s3_trigger_alert_dynamo_link_file" {
+data "archive_file" "lambda_s3_trigger_on_object_upload_file" {
     type = "zip"
-    source_file = "${path.module}/../lambda/upload_resume/alert_dynamo_link.py"
-    output_path = "${path.module}/../lambda/upload_resume/alert_dynamo_link.zip"
+    source_file = "${path.module}/../lambda/upload_resume/on_object_upload.py"
+    output_path = "${path.module}/../lambda/upload_resume/on_object_upload.zip"
 }
 
-resource "aws_lambda_function" "lambda_s3_trigger_alert_dynamo_link_func" {
-  function_name    = "alert-dynamo-link-trigger"
+resource "aws_lambda_function" "lambda_s3_trigger_on_object_upload_func" {
+  function_name    = "on-object-upload-trigger"
   role             = aws_iam_role.lambda_s3_trigger_role.arn
-  handler          = "alert_dynamo_link.handler"
-  filename         = data.archive_file.lambda_s3_trigger_alert_dynamo_link_file.output_path
+  handler          = "on_object_upload.handler"
+  filename         = data.archive_file.lambda_s3_trigger_on_object_upload_file.output_path
   runtime = "python3.9"
-  source_code_hash = data.archive_file.lambda_s3_trigger_alert_dynamo_link_file.output_base64sha256
+  source_code_hash = data.archive_file.lambda_s3_trigger_on_object_upload_file.output_base64sha256
   environment {
     variables = {
       REGION_NAME   = data.aws_region.curr_region.region
-      DYNAMO_DB_NAME = aws_dynamodb_table.res_opt_dynamodb_table.id
+      DYNAMO_DB_TABLE = aws_dynamodb_table.res_opt_dynamodb_table.id
     }
   }
 }
 
-resource "aws_s3_bucket_notification" "s3_alert_dynamo_link_notification" {
+resource "aws_s3_bucket_notification" "s3_on_object_upload_notification" {
     bucket = aws_s3_bucket.resume_bucket.id
     lambda_function {
-      lambda_function_arn = aws_lambda_function.lambda_s3_trigger_alert_dynamo_link_func.arn
+      lambda_function_arn = aws_lambda_function.lambda_s3_trigger_on_object_upload_func.arn
       events = ["s3:ObjectCreated:*"]
     }
     depends_on = [ aws_lambda_permission.allow_s3_to_invoke_trigger_link ]
 }
 
-data "archive_file" "lambda_s3_trigger_add_dynamo_resume_file" {
-    type = "zip"
-    source_file = "${path.module}/../lambda/upload_resume/add_dynamo_resume.py"
-    output_path = "${path.module}/../lambda/upload_resume/add_dynamo_resume.zip"
-}
-
-resource "aws_lambda_function" "lambda_s3_trigger_add_dynamo_resume_func" {
-  function_name    = "add-dynamo-resume-trigger"
-  role             = aws_iam_role.lambda_s3_trigger_role.arn
-  handler          = "add_dynamo_resume.handler"
-  filename         = data.archive_file.lambda_s3_trigger_add_dynamo_resume_file.output_path
-  runtime = "python3.9"
-  source_code_hash = data.archive_file.lambda_s3_trigger_add_dynamo_resume_file.output_base64sha256
-  environment {
-    variables = {
-      DYNAMO_DB_NAME = aws_dynamodb_table.res_opt_dynamodb_table.id
-    }
-  }
-}
-
-resource "aws_s3_bucket_notification" "aws_add_dynamo_resume" {
-    bucket = aws_s3_bucket.resume_bucket.id
-    lambda_function {
-      lambda_function_arn = aws_lambda_function.lambda_s3_trigger_add_dynamo_resume_func.arn
-      events = ["s3:ObjectCreated:*"]
-    }
-    depends_on = [ aws_lambda_permission.allow_s3_to_invoke_add_resume ]
-}
-
-resource "aws_lambda_permission" "allow_s3_to_invoke_trigger_link" {
-  statement_id  = "AllowS3InvokeTriggerLink"
+resource "aws_lambda_permission" "allow_s3_to_invoke_trigger" {
+  statement_id  = "AllowS3InvokeTrigger"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lambda_s3_trigger_alert_dynamo_link_func.function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = aws_s3_bucket.resume_bucket.arn
-}
-
-resource "aws_lambda_permission" "allow_s3_to_invoke_add_resume" {
-  statement_id  = "AllowS3InvokeAddResume"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lambda_s3_trigger_add_dynamo_resume_func.function_name
+  function_name = aws_lambda_function.lambda_s3_trigger_on_object_upload_func.function_name
   principal     = "s3.amazonaws.com"
   source_arn    = aws_s3_bucket.resume_bucket.arn
 }

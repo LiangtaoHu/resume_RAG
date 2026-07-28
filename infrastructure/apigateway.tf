@@ -154,6 +154,39 @@ resource "aws_lambda_permission" "conversation_starter_permissions" {
   source_arn = "${aws_api_gateway_rest_api.rest_api.execution_arn}/*/GET/api/conversation_starter"
 }
 /* ========================================================================== */
+/* Linking Delete Entries Lambda (delete_entry)                               */
+/* ========================================================================== */
+resource "aws_api_gateway_resource" "delete_entry" {
+    rest_api_id = aws_api_gateway_rest_api.rest_api.id
+    path_part = "delete_entry"
+    parent_id = aws_api_gateway_resource.api_prefix.id
+}
+
+resource "aws_api_gateway_method" "delete_entry" {
+    rest_api_id = aws_api_gateway_rest_api.rest_api.id
+    resource_id = aws_api_gateway_resource.delete_entry.id
+    http_method = "POST"
+    authorization = "COGNITO_USER_POOLS"
+    authorizer_id = aws_api_gateway_authorizer.cognito_user_pools_auth.id
+}
+
+resource "aws_api_gateway_integration" "delete_entry" {
+    rest_api_id = aws_api_gateway_rest_api.rest_api.id
+    resource_id = aws_api_gateway_resource.delete_entry.id
+    http_method = aws_api_gateway_method.delete_entry.http_method
+    type = "AWS_PROXY"
+    integration_http_method = "POST"
+    uri = aws_lambda_function.lambda_delete_entries_func.invoke_arn
+}
+
+resource "aws_lambda_permission" "delete_entry_permissions" {
+  statement_id  = "rest-api-invoke-delete-entry"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda_delete_entries_func.arn
+  principal     = "apigateway.amazonaws.com"
+  source_arn = "${aws_api_gateway_rest_api.rest_api.execution_arn}/*/GET/api/delete_entry"
+}
+/* ========================================================================== */
 /* Redirect in case of failed authorization                                   */
 /* ========================================================================== */
 resource "aws_api_gateway_gateway_response" "failed_auth" {

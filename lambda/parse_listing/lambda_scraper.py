@@ -10,7 +10,8 @@ from opensearchpy import AWSV4SignerAuth
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
-from langchain_opensearch import OpenSearchVectorSearch
+from langchain_opensearch import OpenSearchVectorStore
+
 
 # We'll have one collection for the database with one index. Index should have metadata describing the title, user, company
 REGION_NAME = os.environ["REGION_NAME"]
@@ -116,14 +117,14 @@ def lambda_handler(event, context):
         credentials = session.get_credentials()
         auth = AWSV4SignerAuth(credentials, REGION_NAME, "aoss") 
 
-        vector_store = OpenSearchVectorSearch.from_documents(
+        vector_store = OpenSearchVectorStore.from_documents(
             documents=docs,
             embedding=embeddings,
             opensearch_url=OPENSEARCH_URL,
             http_auth=auth,
             use_ssl=True,
             verify_certs=True,
-            connection_class=OpenSearchVectorSearch.get_connection_class(),
+            connection_class=OpenSearchVectorStore.get_connection_class(),
             index_name="resume-rag-index"
         )
 

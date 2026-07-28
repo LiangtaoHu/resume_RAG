@@ -460,7 +460,7 @@ resource "aws_s3_bucket_notification" "s3_on_object_upload_notification" {
       lambda_function_arn = aws_lambda_function.lambda_s3_trigger_on_object_upload_func.arn
       events = ["s3:ObjectCreated:*"]
     }
-    depends_on = [ aws_lambda_permission.allow_s3_to_invoke_trigger_link ]
+    depends_on = [ aws_lambda_permission.allow_s3_to_invoke_trigger ]
 }
 
 resource "aws_lambda_permission" "allow_s3_to_invoke_trigger" {

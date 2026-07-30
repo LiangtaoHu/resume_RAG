@@ -75,7 +75,8 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
         "aoss:DescribeIndex",
         "aoss:ReadDocument",
         "aoss:WriteDocument",
-        "aoss:DeleteIndex"
+        "aoss:DeleteIndex",
+        "aoss:UpdateIndex"
       ]
     }, 
     {
@@ -92,7 +93,7 @@ resource "aws_opensearchserverless_access_policy" "data_access" {
 }
 
 resource "null_resource" "resume_rag_index" {
-  # Recreate if the mapping definition changes
+  # Recreate if the mapping definition or collection endpoint changes
   triggers = {
     mapping_hash = sha256(jsonencode({
       properties = {
@@ -153,12 +154,11 @@ resource "null_resource" "resume_rag_index" {
 
   provisioner "local-exec" {
     when    = destroy
-    command = "echo 'Note: manually delete index if needed'"
+    command = "echo 'Note: manually delete OpenSearch index resume-rag-index if needed'"
   }
 
   depends_on = [
     aws_opensearchserverless_access_policy.data_access,
     aws_opensearchserverless_collection.vector_db
-
   ]
 }

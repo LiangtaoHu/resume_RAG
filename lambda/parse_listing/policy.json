@@ -1,0 +1,45 @@
+{
+    "accessPolicyDetail": {
+        "type": "data",
+        "name": "rag-data-access-policy",
+        "policyVersion": "MTc4NTM1NDIyOTY1M18z",
+        "description": "Grants read/write permissions to Lambda execution role and the master Bedrock agent",
+        "policy": [
+            {
+                "Rules": [
+                    {
+                        "Permission": [
+                            "aoss:CreateIndex",
+                            "aoss:DescribeIndex",
+                            "aoss:ReadDocument",
+                            "aoss:WriteDocument",
+                            "aoss:DeleteIndex"
+                        ],
+                        "Resource": [
+                            "index/resume-rag-database/*"
+                        ],
+                        "ResourceType": "index"
+                    },
+                    {
+                        "Permission": [
+                            "aoss:CreateCollectionItems",
+                            "aoss:UpdateCollectionItems",
+                            "aoss:DescribeCollectionItems"
+                        ],
+                        "Resource": [
+                            "collection/resume-rag-database"
+                        ],
+                        "ResourceType": "collection"
+                    }
+                ],
+                "Principal": [
+                    "arn:aws:iam::273354655761:role/lambda_role",
+                    "arn:aws:iam::273354655761:role/bedrock-kb-exec-role",
+                    "arn:aws:iam::273354655761:user/testUser"
+                ]
+            }
+        ],
+        "createdDate": 1785261089109,
+        "lastModifiedDate": 1785354229653
+    }
+}

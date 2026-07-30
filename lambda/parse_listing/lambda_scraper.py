@@ -1,17 +1,22 @@
 import json
 import os
-import boto3
 from typing import List
-from pydantic import BaseModel, Field
-from langchain_community.document_loaders import SeleniumURLLoader
-from langchain_core.prompts import ChatPromptTemplate
 
-from opensearchpy import AWSV4SignerAuth
-from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+import boto3
 from langchain_aws import BedrockEmbeddings, ChatBedrockConverse
-from langchain_opensearch import OpenSearchVectorStore
+from langchain_community.document_loaders import SeleniumURLLoader
+from langchain_community.vectorstores import OpenSearchVectorSearch
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from opensearchpy import AWSV4SignerAuth, RequestsHttpConnection
+from pydantic import BaseModel, Field
 
+import boto3
+sts = boto3.client('sts')
+print("RUNTIME IDENTITY: ", sts.get_caller_identity()["Arn"])
+
+os.environ["HOME"] = "/tmp"
 
 # We'll have one collection for the database with one index. Index should have metadata describing the title, user, company
 REGION_NAME = os.environ["REGION_NAME"]
@@ -36,7 +41,7 @@ def lambda_handler(event, context):
         }
     try:
         # Extract the URL from the Lambda event payload
-        body = json.loads(event.get("body", "{}")) if "body" in event else event
+        body = event.get("body", "{}") if "body" in event else event
         url = body.get("url")
         if not url:
             return {
@@ -49,6 +54,8 @@ def lambda_handler(event, context):
             continue_on_failure=False, 
             browser='chrome', 
             headless=True,
+            binary_location = "/opt/chrome/chrome",
+            executable_path="/opt/chromedriver",
             arguments=[
                 "--headless=new",
                 "--no-sandbox",
@@ -68,7 +75,7 @@ def lambda_handler(event, context):
         # llm = ChatOpenAI(model="gpt-4o", api_key=api_key)
         # structured_llm = llm.with_structured_output(JobListing, method="json_schema")
         llm = ChatBedrockConverse(
-            model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            model_id="global.anthropic.claude-sonnet-4-6",
             region_name="us-east-1"
         )
         structured_llm = llm.with_structured_output(JobListing)
@@ -117,15 +124,16 @@ def lambda_handler(event, context):
         credentials = session.get_credentials()
         auth = AWSV4SignerAuth(credentials, REGION_NAME, "aoss") 
 
-        vector_store = OpenSearchVectorStore.from_documents(
+        vector_store = OpenSearchVectorSearch.from_documents(
             documents=docs,
             embedding=embeddings,
             opensearch_url=OPENSEARCH_URL,
             http_auth=auth,
             use_ssl=True,
             verify_certs=True,
-            connection_class=OpenSearchVectorStore.get_connection_class(),
-            index_name="resume-rag-index"
+            connection_class=RequestsHttpConnection,
+            index_name="resume-rag-index",
+            is_aoss = True
         )
 
         # Save to DynamoDB

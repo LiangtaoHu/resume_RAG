@@ -35,7 +35,7 @@ def lambda_handler(event, context):
         }
     )
     conversation = response.get("Item", {})
-    chatHistory = conversation.get("chatHistory", [])
+    chatHistory = json.loads(conversation.get("chatHistory", '[]'))
     resume_id = conversation.get("resumeID", "")
     job_id = conversation.get("jobID", "")
     if conversation == {}:
@@ -48,14 +48,13 @@ def lambda_handler(event, context):
                 "headers": {"Content-Type": "application/json"},
                 "body": json.dumps({"error": "Neither conversation id or resume and job ids were provided. Invalid Request."})
             }
-
         dynamo_table.put_item(
             Item = {
                 'HK': f"USER#{user_identity}",
                 'SK': f"CONV#{resume_id}-{job_id}",
                 'resumeID': resume_id,
                 'jobID': job_id,
-                'chatHistory': chatHistory
+                'chatHistory': '[]'
             }
         )
     # Now we definitely have a conversation with this id in the database. We just need to determine if we are in the 1 hour message timelimit
@@ -82,24 +81,26 @@ def lambda_handler(event, context):
             "body": json.dumps({"error": "User message is invalid."})
         }
     # We have chatHistory and our message was more than an hour ago, send entire chat History with it
-    if chatHistory != [] and chatHistory[-1]['timestamp'] < (one_hour_ago + buffer_time):
+    if (chatHistory != []) and (float(chatHistory[-1]['timestamp']) < (one_hour_ago + buffer_time)):
         user_message = "CHAT HISTORY UP UNTIL THIS POINT: \n" + json.dumps(chatHistory) + "\n" + "USER MESSAGE: \n" + user_message
     else:
-        resume_item = dynamo_table.get_item(
-            Key = {
-                'HK': f"USER#{user_identity}",
-                'SK': f"RESUME#{resume_id}"
-            }
-        )
-        resume = resume_item.get("Item")
-        resume_text = resume.get("CachedText", "")
-        if resume_text == "":
-            return {
-                'statusCode': "400",
-                "headers": {"Content-Type": "application/json"},
-                "body": json.dumps({"error": "Resume is empty."})
-            }
-        user_message = "USER RESUME: \n" + resume_text + "\n" + "USER MESSAGE: \n" + user_message
+        # resume_item = dynamo_table.get_item(
+        #     Key = {
+        #         'HK': f"USER#{user_identity}",
+        #         'SK': f"RESUME#{resume_id}"
+        #     }
+        # )
+        # resume = resume_item.get("Item")
+        # resume_text = resume.get("CachedText", "")
+        # if resume_text == "":
+        #     return {
+        #         'statusCode': "400",
+        #         "headers": {"Content-Type": "application/json"},
+        #         "body": json.dumps({"error": "Resume is empty."})
+        #     }
+        # user_message = "USER RESUME: \n" + resume_text + "\n" + "USER MESSAGE: \n" + user_message
+        user_message = "USER MESSAGE: \n" + user_message
+    user_timestamp = time.time()
     response = bedrock_client.invoke_agent(
         agentId = AGENT_ID,
         agentAliasId = AGENT_ALIAS_ID,
@@ -129,7 +130,35 @@ def lambda_handler(event, context):
             }]
         }
     )
-    # We should update chatHistory along with the full message from the AI. 
+    agent_timestamp = time.time()
+    # Update Conversation History
+    chatHistory.append({
+        "role": "user",
+        "message": user_message,
+        "timestamp": user_timestamp
+    })
+    chatHistory.append({
+        "role": "agent",
+        "message": derive_full_text(response),
+        "timestamp": agent_timestamp
+    })
+    try: 
+        dynamo_table.update_item(
+            Key={
+                'HK': "USER#" + user_identity,
+                'SK': "CONV#" + conversation_id
+            }, 
+            UpdateExpression = 'SET #s := val',
+            ExpressionAttributeNames={'#s': "chatHistory"},
+            ExpressionAttributeValues={':val': json.dumps(chatHistory)}
+        )
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'headers': {"Content-Type": "application/json"},
+            'body': json.dumps({"error": "Interal DynamoDB error. Couldn't retrieve data."})
+        }
+
     return {
         'statusCode': 200,
         "headers": {"Content-Type": "application/json"},

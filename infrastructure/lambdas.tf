@@ -3,8 +3,8 @@ data "aws_region" "curr_region" {}
 /* ========================================================================== */
 /* Listing Parser Lambda Function                                             */
 /* ========================================================================== */
-resource "aws_ecr_repository" "resume_RAG_ecr_repo" {
-  name = "resume-rag-images"
+resource "aws_ecr_repository" "resume_rag_parse_listing_repo" {
+  name = "resume-rag-parse-listing-repo"
   image_scanning_configuration {
     scan_on_push = true
   }
@@ -23,19 +23,19 @@ resource "null_resource" "Lambda_DockerFile_Update" {
   provisioner "local-exec" {
     command = <<EOF
       # 1. Authenticate local Docker daemon with AWS ECR
-      aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}
+      aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${aws_ecr_repository.resume_rag_parse_listing_repo.repository_url}
       
       # 2. Build the Docker image locally using the Dockerfile blueprint
-      docker build -t ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest -f ${path.module}/../lambda/parse_listing/Dockerfile ${path.module}/../lambda/parse_listing/
+      docker build -t ${aws_ecr_repository.resume_rag_parse_listing_repo.repository_url}:latest -f ${path.module}/../lambda/parse_listing/Dockerfile ${path.module}/../lambda/parse_listing/
       
       # 3. Push the image up to your AWS ECR Registry
-      docker push ${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest
+      docker push ${aws_ecr_repository.resume_rag_parse_listing_repo.repository_url}:latest
     EOF
   }
 }
 
 resource "aws_iam_role" "lambda_parse_listing_role" {
-  name = "lambda_role"
+  name = "lambda_parse_listing_role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -71,6 +71,24 @@ resource "aws_iam_role_policy_attachment" "lambda_embedding_attachment" {
   policy_arn =  aws_iam_policy.lambda_embedding_policy.arn
 }
 // End of Bedrock Embedding Statement
+
+data "aws_iam_policy_document" "lambda_aws_model_subscription_statement" {
+  statement {
+    effect = "Allow"
+    actions = ["aws-market:Subscribe", "aws-market:Unsubscribe", "aws-market:ViewSubscriptions"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "lambda_aws_model_subscription_policy" {
+  name = "lambda-aws-model-subscription"
+  policy = data.aws_iam_policy_document.lambda_aws_model_subscription_statement.json
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_aws_model_subscription_attachment" {
+  role = aws_iam_role.lambda_parse_listing_role.name
+  policy_arn = aws_iam_policy.lambda_aws_model_subscription_policy.arn
+}
 
 // Start of Dynamo GetItem, PutItem, Query Statement
 data "aws_iam_policy_document" "lambda_dynamo_statement" {
@@ -112,7 +130,7 @@ resource "aws_lambda_function" "lambda_parse_listing_func" {
   function_name = "lambda-parse-listing-func"
   role          = aws_iam_role.lambda_parse_listing_role.arn
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.resume_RAG_ecr_repo.repository_url}:latest"
+  image_uri     = "${aws_ecr_repository.resume_rag_parse_listing_repo.repository_url}:latest"
   timeout       = 180
   memory_size   = 2048
   environment {
@@ -157,19 +175,62 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamo_attachment_upload_resum
   policy_arn = aws_iam_policy.lambda_dynamo_policy.arn
 }
 
-data "archive_file" "lambda_upload_resume_file" {
-    type = "zip"
-    source_file = "${path.module}/../lambda/upload_resume/s3_presigned_url.py"
-    output_path = "${path.module}/../lambda/upload_resume/s3_presigned_url.zip"
+# data "archive_file" "lambda_upload_resume_file" {
+#     type = "zip"
+#     source_file = "${path.module}/../lambda/upload_resume/s3_presigned_url.py"
+#     output_path = "${path.module}/../lambda/upload_resume/s3_presigned_url.zip"
+# }
+
+# data "archive_file" "lambda_layer_upload_resume_zip" {
+#   type = "zip"
+#   source_dir = "${path.module}/../lambda/upload_resume/lambda_layer"
+#   output_path = "${path.module}/../lambda/upload_resume/lambda_layer/lambda_layer.zip"
+# }
+
+# resource aws_lambda_layer_version "lambda_layer_upload_resume" {
+#   filename = data.archive_file.lambda_layer_upload_resume_zip.output_path
+#   layer_name = "pymupdf4llm-layer"
+#   source_code_hash = data.archive_file.lambda_layer_upload_resume_zip.output_base64sha256
+#   compatible_runtimes = ["python3.9"]
+#   skip_destroy = true
+# }
+
+resource "aws_ecr_repository" "resume_rag_upload_resume_repo" {
+  name = "resume-rag-upload-resume-repo"
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "null_resource" "Lambda_DockerFile_Update" {
+  triggers = {
+    code_hash = filemd5("${path.module}/../lambda/upload_resume/image/s3_presigned_url.py")
+    requirements_hash = filemd5("${path.module}/../lambda/upload_resume/image/requirements.txt")
+    docker_hash = filemd5("${path.module}/../lambda/upload_resume/image/Dockerfile")
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+      # 1. Authenticate local Docker daemon with AWS ECR
+      aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${aws_ecr_repository.resume_rag_upload_resume_repo.repository_url}
+      
+      # 2. Build the Docker image locally using the Dockerfile blueprint
+      docker build -t ${aws_ecr_repository.resume_rag_upload_resume_repo.repository_url}:latest -f ${path.module}/../lambda/upload_resume/image/Dockerfile ${path.module}/../lambda/upload_resume/image
+      
+      # 3. Push the image up to your AWS ECR Registry
+      docker push ${aws_ecr_repository.resume_rag_upload_resume_repo.repository_url}:latest
+    EOF
+  }
 }
 
 resource "aws_lambda_function" "lambda_upload_resume_func" {
-    filename = data.archive_file.lambda_upload_resume_file.output_path
+    depends_on = [null_resource.Lambda_DockerFile_upload_resume]
     function_name = "lambda-upload-resume-func"
     role = aws_iam_role.lambda_upload_resume_role.arn
-    handler = "s3_presigned_url.handler"
-    source_code_hash = data.archive_file.lambda_upload_resume_file.output_base64sha256
-    runtime = "python3.9"
+    package_type = "Image"
+    image_uri = "${aws_ecr_repository.resume_rag_upload_resume_repo.repository_url}:latest"
+    timeout = 180
+    memory_size = 2048
     environment {
       variables = {
         RESUME_BUCKET = aws_s3_bucket.resume_bucket.id,
@@ -179,7 +240,6 @@ resource "aws_lambda_function" "lambda_upload_resume_func" {
     }
     tags = {}
 }
-
 /* ========================================================================== */
 /* View Data Lambda Function                                                  */
 /* ========================================================================== */

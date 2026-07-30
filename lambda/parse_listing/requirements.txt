@@ -7,3 +7,4 @@ selenium
 opensearch-py
 langchain-opensearch
 langchain-aws
+unstructured

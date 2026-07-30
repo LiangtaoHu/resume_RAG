@@ -37,8 +37,7 @@ def handler(event, context):
                         'SK': f"CONV#{conversation_id}"
                     }
                 )
-
-        if resume_id:
+        elif resume_id:
             q_response = dynamo_table.get_item(
                 Key = {
                     'HK': f"USER#{user_identity}",
@@ -54,7 +53,7 @@ def handler(event, context):
                     }
                 )
 
-        if listing_id:
+        elif listing_id:
             q_response = dynamo_table.get_item(
                 Key = {
                     'HK': f"USER#{user_identity}",

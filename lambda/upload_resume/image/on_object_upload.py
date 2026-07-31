@@ -60,7 +60,7 @@ def handler(event, context):
     table.put_item(
         Item = {
             'HK': f'USER#{user_identity}',
-            'SK': f'RESUME#{file_name}',
+            'SK': f'RESUME#{file_name.split(".")[0]}',
             'S3Location': key,
             'cachedText': md
         }

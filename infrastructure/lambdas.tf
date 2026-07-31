@@ -53,22 +53,25 @@ resource "aws_iam_role_policy_attachment" "lambda_cloudwatch_logs_attachment" {
 }
 
 // Start of Bedrock Embedding Statement
-data "aws_iam_policy_document" "lambda_embedding_statement" {
+data "aws_iam_policy_document" "lambda_invokeModel_statement" {
   statement {
     effect = "Allow"
     actions = ["bedrock:InvokeModel"]
-    resources = ["arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"]
+    resources = [                
+      "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0",
+      "arn:aws:bedrock:us-east-1:273354655761:inference-profile/global.anthropic.claude-sonnet-4-6",
+      "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-6*"]
   }
 }
 
-resource "aws_iam_policy" "lambda_embedding_policy" {
+resource "aws_iam_policy" "lambda_invokeModel_policy" {
   name = "lambda-bedrock-model-access"
-  policy = data.aws_iam_policy_document.lambda_embedding_statement.json
+  policy = data.aws_iam_policy_document.lambda_invokeModel_statement.json
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_embedding_attachment" {
+resource "aws_iam_role_policy_attachment" "lambda_invokeModel_attachment" {
   role = aws_iam_role.lambda_parse_listing_role.name
-  policy_arn =  aws_iam_policy.lambda_embedding_policy.arn
+  policy_arn =  aws_iam_policy.lambda_invokeModel_policy.arn
 }
 // End of Bedrock Embedding Statement
 
@@ -94,7 +97,7 @@ resource "aws_iam_role_policy_attachment" "lambda_aws_model_subscription_attachm
 data "aws_iam_policy_document" "lambda_dynamo_statement" {
   statement {
     effect = "Allow"
-    actions = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"]
+    actions = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:UpdateItem"]
     resources = [aws_dynamodb_table.res_opt_dynamodb_table.arn]
   }
 }
@@ -139,6 +142,7 @@ resource "aws_lambda_function" "lambda_parse_listing_func" {
       REGION_NAME = data.aws_region.curr_region.region
     }
   }
+  architectures = ["x86_64"]
 }
 
 /* ========================================================================== */
@@ -175,71 +179,29 @@ resource "aws_iam_role_policy_attachment" "lambda_dynamo_attachment_upload_resum
   policy_arn = aws_iam_policy.lambda_dynamo_policy.arn
 }
 
-# data "archive_file" "lambda_upload_resume_file" {
-#     type = "zip"
-#     source_file = "${path.module}/../lambda/upload_resume/s3_presigned_url.py"
-#     output_path = "${path.module}/../lambda/upload_resume/s3_presigned_url.zip"
-# }
-
-# data "archive_file" "lambda_layer_upload_resume_zip" {
-#   type = "zip"
-#   source_dir = "${path.module}/../lambda/upload_resume/lambda_layer"
-#   output_path = "${path.module}/../lambda/upload_resume/lambda_layer/lambda_layer.zip"
-# }
-
-# resource aws_lambda_layer_version "lambda_layer_upload_resume" {
-#   filename = data.archive_file.lambda_layer_upload_resume_zip.output_path
-#   layer_name = "pymupdf4llm-layer"
-#   source_code_hash = data.archive_file.lambda_layer_upload_resume_zip.output_base64sha256
-#   compatible_runtimes = ["python3.9"]
-#   skip_destroy = true
-# }
-
-resource "aws_ecr_repository" "resume_rag_upload_resume_repo" {
-  name = "resume-rag-upload-resume-repo"
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-resource "null_resource" "Lambda_DockerFile_Update" {
-  triggers = {
-    code_hash = filemd5("${path.module}/../lambda/upload_resume/image/s3_presigned_url.py")
-    requirements_hash = filemd5("${path.module}/../lambda/upload_resume/image/requirements.txt")
-    docker_hash = filemd5("${path.module}/../lambda/upload_resume/image/Dockerfile")
-  }
-
-  provisioner "local-exec" {
-    command = <<EOF
-      # 1. Authenticate local Docker daemon with AWS ECR
-      aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${aws_ecr_repository.resume_rag_upload_resume_repo.repository_url}
-      
-      # 2. Build the Docker image locally using the Dockerfile blueprint
-      docker build -t ${aws_ecr_repository.resume_rag_upload_resume_repo.repository_url}:latest -f ${path.module}/../lambda/upload_resume/image/Dockerfile ${path.module}/../lambda/upload_resume/image
-      
-      # 3. Push the image up to your AWS ECR Registry
-      docker push ${aws_ecr_repository.resume_rag_upload_resume_repo.repository_url}:latest
-    EOF
-  }
+data "archive_file" "lambda_upload_resume_file" {
+    type = "zip"
+    source_file = "${path.module}/../lambda/upload_resume/s3_presigned_url.py"
+    output_path = "${path.module}/../lambda/upload_resume/s3_presigned_url.zip"
 }
 
 resource "aws_lambda_function" "lambda_upload_resume_func" {
-    depends_on = [null_resource.Lambda_DockerFile_upload_resume]
-    function_name = "lambda-upload-resume-func"
+    filename = data.archive_file.lambda_upload_resume_file.output_path
+    function_name = "lambda_upload_resume_func"
     role = aws_iam_role.lambda_upload_resume_role.arn
-    package_type = "Image"
-    image_uri = "${aws_ecr_repository.resume_rag_upload_resume_repo.repository_url}:latest"
-    timeout = 180
-    memory_size = 2048
+    handler = "s3_presigned_url.handler"
+    source_code_hash = data.archive_file.lambda_upload_resume_file.output_base64sha256
+    runtime = "python3.9"
     environment {
       variables = {
-        RESUME_BUCKET = aws_s3_bucket.resume_bucket.id,
-        EXPIRATION_TIME = var.expiration_time,
-        REGION_NAME = data.aws_region.curr_region.region
+        REGION_NAME   = data.aws_region.curr_region.region
+        RESUME_BUCKET = aws_s3_bucket.resume_bucket.id
+        EXPIRATION_TIME = var.expiration_time
       }
     }
     tags = {}
 }
+
 /* ========================================================================== */
 /* View Data Lambda Function                                                  */
 /* ========================================================================== */
@@ -301,7 +263,7 @@ data "aws_iam_policy_document" "lambda_invoke_bedrock_statement" {
   statement {
     effect = "Allow"
     actions = ["bedrock:InvokeAgent"]
-    resources = [aws_bedrockagent_agent.resume_agent.agent_arn]
+    resources = [aws_bedrockagent_agent.resume_agent.agent_arn, aws_bedrockagent_agent_alias.resume_agent_alias.agent_alias_arn]
   }
 }
 
@@ -331,15 +293,18 @@ resource "aws_lambda_function" "lambda_message_bedrock_func" {
     filename = data.archive_file.lambda_message_bedrock_file.output_path
     function_name = "lambda-message-bedrock"
     role = aws_iam_role.lambda_message_bedrock_resume_agent_role.arn
-    handler = "message_bedrock.handler"
+    handler = "message_bedrock.lambda_handler"
     source_code_hash = data.archive_file.lambda_message_bedrock_file.output_base64sha256
     runtime = "python3.9"
+    timeout       = 180
+    memory_size   = 2048
     environment {
       variables = {
         DYNAMO_DB_TABLE = aws_dynamodb_table.res_opt_dynamodb_table.id
         KB_ID = aws_bedrockagent_knowledge_base.rag_kb.id
         AGENT_ID = aws_bedrockagent_agent.resume_agent.agent_id
         REGION_NAME = data.aws_region.curr_region.region
+        AGENT_ALIAS_ID = aws_bedrockagent_agent_alias.resume_agent_alias.agent_alias_id
       }
     }
     tags = {}
@@ -360,17 +325,17 @@ resource "aws_iam_role" "lambda_delete_entries_role" {
   })
 }
 
-data "aws_iam_policy_document" "lambda_delete_entries_statement" {
+data "aws_iam_policy_document" "lambda_delete_get_entries_statement" {
   statement {
     effect = "Allow"
-    actions = ["dynamodb:delete_item"]
+    actions = ["dynamodb:DeleteItem", "dynamodb:GetItem"]
     resources = [aws_dynamodb_table.res_opt_dynamodb_table.arn]
   }
 }
 
 resource "aws_iam_policy" "lambda_delete_entries_policy" {
   name = "lambda_delete_entries_policy"
-  policy = data.aws_iam_policy_document.lambda_delete_entries_statement.json
+  policy = data.aws_iam_policy_document.lambda_delete_get_entries_statement.json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_delete_entries_attachment" {
@@ -388,7 +353,7 @@ resource "aws_lambda_function" "lambda_delete_entries_func" {
     filename = data.archive_file.lambda_delete_entries_file.output_path
     function_name = "lambda-delete-entries"
     role = aws_iam_role.lambda_delete_entries_role.arn
-    handler = "message_bedrock.handler"
+    handler = "delete_entry.handler"
     source_code_hash = data.archive_file.lambda_delete_entries_file.output_base64sha256
     runtime = "python3.9"
     environment {
@@ -493,40 +458,86 @@ resource "aws_iam_role_policy_attachment" "lambda_s3_trigger_attachment" {
   policy_arn = aws_iam_policy.lambda_s3_trigger_policy.arn
 }
 
-data "archive_file" "lambda_s3_trigger_on_object_upload_file" {
-    type = "zip"
-    source_file = "${path.module}/../lambda/upload_resume/on_object_upload.py"
-    output_path = "${path.module}/../lambda/upload_resume/on_object_upload.zip"
+# data "archive_file" "lambda_s3_trigger_on_object_upload_file" {
+#     type = "zip"
+#     source_file = "${path.module}/../lambda/upload_resume/on_object_upload.py"
+#     output_path = "${path.module}/../lambda/upload_resume/on_object_upload.zip"
+# }
+
+# resource "aws_lambda_function" "lambda_s3_trigger_on_object_upload_func" {
+#   function_name    = "on-object-upload-trigger"
+#   role             = aws_iam_role.lambda_s3_trigger_role.arn
+#   handler          = "on_object_upload.handler"
+#   filename         = data.archive_file.lambda_s3_trigger_on_object_upload_file.output_path
+#   runtime = "python3.9"
+#   source_code_hash = data.archive_file.lambda_s3_trigger_on_object_upload_file.output_base64sha256
+#   environment {
+#     variables = {
+#       REGION_NAME   = data.aws_region.curr_region.region
+#       DYNAMO_DB_TABLE = aws_dynamodb_table.res_opt_dynamodb_table.id
+#     }
+#   }
+# }
+
+resource "aws_lambda_permission" "allow_s3_to_invoke_trigger" {
+  statement_id  = "AllowS3InvokeTrigger"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda_on_object_upload_func.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.resume_bucket.arn
 }
 
-resource "aws_lambda_function" "lambda_s3_trigger_on_object_upload_func" {
-  function_name    = "on-object-upload-trigger"
-  role             = aws_iam_role.lambda_s3_trigger_role.arn
-  handler          = "on_object_upload.handler"
-  filename         = data.archive_file.lambda_s3_trigger_on_object_upload_file.output_path
-  runtime = "python3.9"
-  source_code_hash = data.archive_file.lambda_s3_trigger_on_object_upload_file.output_base64sha256
-  environment {
-    variables = {
-      REGION_NAME   = data.aws_region.curr_region.region
-      DYNAMO_DB_TABLE = aws_dynamodb_table.res_opt_dynamodb_table.id
-    }
+resource "aws_ecr_repository" "resume_rag_on_object_upload_repo" {
+  name = "resume-rag-on-object-upload-repo"
+  image_scanning_configuration {
+    scan_on_push = true
   }
+}
+
+resource "null_resource" "Lambda_DockerFile_on_object_upload" {
+  triggers = {
+    code_hash = filemd5("${path.module}/../lambda/upload_resume/image/on_object_upload.py")
+    requirements_hash = filemd5("${path.module}/../lambda/upload_resume/image/requirements.txt")
+    docker_hash = filemd5("${path.module}/../lambda/upload_resume/image/Dockerfile")
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+      # 1. Authenticate local Docker daemon with AWS ECR
+      aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${aws_ecr_repository.resume_rag_on_object_upload_repo.repository_url}
+      
+      # 2. Build the Docker image locally using the Dockerfile blueprint
+      docker build -t ${aws_ecr_repository.resume_rag_on_object_upload_repo.repository_url}:latest -f ${path.module}/../lambda/upload_resume/image/Dockerfile ${path.module}/../lambda/upload_resume/image
+      
+      # 3. Push the image up to your AWS ECR Registry
+      docker push ${aws_ecr_repository.resume_rag_on_object_upload_repo.repository_url}:latest
+    EOF
+  }
+}
+
+resource "aws_lambda_function" "lambda_on_object_upload_func" {
+    depends_on = [null_resource.Lambda_DockerFile_on_object_upload]
+    function_name = "lambda-on-object-upload-func"
+    role = aws_iam_role.lambda_s3_trigger_role.arn
+    package_type = "Image"
+    image_uri = "${aws_ecr_repository.resume_rag_on_object_upload_repo.repository_url}:latest"
+    timeout = 180
+    memory_size = 2048
+    environment {
+      variables = {
+        REGION_NAME   = data.aws_region.curr_region.region
+        DYNAMO_DB_TABLE = aws_dynamodb_table.res_opt_dynamodb_table.id
+      }
+    }
+    architectures = [ "arm64" ]
+    tags = {}
 }
 
 resource "aws_s3_bucket_notification" "s3_on_object_upload_notification" {
     bucket = aws_s3_bucket.resume_bucket.id
     lambda_function {
-      lambda_function_arn = aws_lambda_function.lambda_s3_trigger_on_object_upload_func.arn
+      lambda_function_arn = aws_lambda_function.lambda_on_object_upload_func.arn
       events = ["s3:ObjectCreated:*"]
     }
     depends_on = [ aws_lambda_permission.allow_s3_to_invoke_trigger ]
-}
-
-resource "aws_lambda_permission" "allow_s3_to_invoke_trigger" {
-  statement_id  = "AllowS3InvokeTrigger"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.lambda_s3_trigger_on_object_upload_func.function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = aws_s3_bucket.resume_bucket.arn
 }

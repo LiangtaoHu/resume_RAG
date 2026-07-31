@@ -16,7 +16,7 @@ def handler(event, context):
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"error": "Unauthorized: Missing idToken"})
         }
-    body = json.loads(event.get('body', '{}'))
+    body = event.get('body', {})
     conversation_id = body.get('conversation_id', "")
     resume_id = body.get('resume_id', "")
     listing_id = body.get('listing_id', "")

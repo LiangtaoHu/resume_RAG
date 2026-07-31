@@ -16,3 +16,7 @@ variable "expiration_time" {
 variable "SNS_external_ID" {
     type = string
 }
+
+variable "agent_alias_id" {
+    type = string
+}

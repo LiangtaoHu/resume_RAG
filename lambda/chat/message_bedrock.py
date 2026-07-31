@@ -24,7 +24,7 @@ def derive_full_text(response):
 def lambda_handler(event, context):
     # We are already authenticated
     user_identity = event['requestContext']['authorizer']['claims']['sub']
-    body = json.loads(event.get('body', '{}'))
+    body = event.get('body', {})
     conversation_id = body.get('conversation_id', "")
 
     # Conversation ID check
@@ -57,12 +57,13 @@ def lambda_handler(event, context):
                 'chatHistory': '[]'
             }
         )
+        conversation_id = f"{resume_id}-{job_id}"
     # Now we definitely have a conversation with this id in the database. We just need to determine if we are in the 1 hour message timelimit
     one_hour_ago = time.time() - 3600 # 3600 seconds in an hour
     buffer_time = 10 # 10 seconds
     job_result = dynamo_table.get_item(
         Key = {
-            'HK': user_identity,
+            'HK': "USER#" + user_identity,
             'SK': f"JOB#{job_id}"
         }
     )
@@ -101,37 +102,38 @@ def lambda_handler(event, context):
         # user_message = "USER RESUME: \n" + resume_text + "\n" + "USER MESSAGE: \n" + user_message
         user_message = "USER MESSAGE: \n" + user_message
     user_timestamp = time.time()
-    response = bedrock_client.invoke_agent(
-        agentId = AGENT_ID,
-        agentAliasId = AGENT_ALIAS_ID,
-        inputText = user_message,
-        sessionId = conversation_id,
-        sessionState = {
-            "knowledgeBaseConfigurations": [{
-                "knowledgeBaseId": KB_ID,
-                "retrievalConfiguration": {
-                    "vectorSearchConfiguration": {
-                        'filter': {
-                            'andAll': [{
-                                'equals': {
-                                    "key": "user-id",
-                                    "value": user_identity
-                                }
-                            }, 
-                            {
-                            'equals': {
-                                "key": "title",
-                                "value": f"{job_object['company']}-{job_object['position']}"
-                                }
-                            }]
-                        }
-                    },
-                }
-            }]
+    try:
+        response = bedrock_client.invoke_agent(
+            agentId=AGENT_ID,
+            agentAliasId=AGENT_ALIAS_ID,
+            inputText=user_message,
+            sessionId=conversation_id,
+            enableTrace=True,
+            sessionState={
+                "knowledgeBaseConfigurations": [{
+                    "knowledgeBaseId": KB_ID,
+                    "retrievalConfiguration": {
+                        "vectorSearchConfiguration": {
+                            "filter": {
+                                "andAll": [
+                                    {"equals": {"key": "user-id", "value": user_identity}},
+                                    {"equals": {"key": "title", "value": f"{job_object['company']}-{job_object['position']}"}}
+                                ]
+                            }
+                        },
+                    }
+                }]
+            }
+        )
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'headers': {"Content-Type": "application/json"},
+            'body': json.dumps({"error": f"Internal Bedrock error: {e}"})
         }
-    )
     agent_timestamp = time.time()
     # Update Conversation History
+    agent_message = derive_full_text(response)
     chatHistory.append({
         "role": "user",
         "message": user_message,
@@ -139,7 +141,7 @@ def lambda_handler(event, context):
     })
     chatHistory.append({
         "role": "agent",
-        "message": derive_full_text(response),
+        "message": agent_message,
         "timestamp": agent_timestamp
     })
     try: 
@@ -148,7 +150,7 @@ def lambda_handler(event, context):
                 'HK': "USER#" + user_identity,
                 'SK': "CONV#" + conversation_id
             }, 
-            UpdateExpression = 'SET #s := val',
+            UpdateExpression = 'SET #s = :val',
             ExpressionAttributeNames={'#s': "chatHistory"},
             ExpressionAttributeValues={':val': json.dumps(chatHistory)}
         )
@@ -156,13 +158,10 @@ def lambda_handler(event, context):
         return {
             'statusCode': 500,
             'headers': {"Content-Type": "application/json"},
-            'body': json.dumps({"error": "Interal DynamoDB error. Couldn't retrieve data."})
+            'body': json.dumps({"error": f"Internal DynamoDB error. Couldn't update data. {e}"})
         }
-
     return {
         'statusCode': 200,
         "headers": {"Content-Type": "application/json"},
-        'body': {
-            'agent_text': derive_full_text(response)
-        }
+        'body': json.dumps({"agent_message": agent_message})
     }

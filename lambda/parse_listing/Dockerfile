@@ -1,4 +1,4 @@
-FROM umihico/aws-lambda-selenium-python:latest
+FROM --platform=linux/arm64 --platform=linux/amd64 umihico/aws-lambda-selenium-python:latest
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

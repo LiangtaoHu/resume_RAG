@@ -1,5 +1,9 @@
 data "aws_partition" "curr_partition" {}
 
+locals {
+  foundational_model = "amazon.nova-pro-v1:0"
+}
+
 /* ========================================================================== */
 /* Bedrock Knowledge Base                                                     */
 /* ========================================================================== */
@@ -88,7 +92,7 @@ data "aws_iam_policy_document" "bedrock_agent_statement" {
     statement {
       sid = "InvokeFoundationalModel"
       actions = ["bedrock:InvokeModel"]
-      resources = ["arn:${data.aws_partition.curr_partition.partition}:bedrock:${data.aws_region.curr_region.region}::foundation-model/anthropic.claude-v2"]
+      resources = ["arn:${data.aws_partition.curr_partition.partition}:bedrock:${data.aws_region.curr_region.region}::foundation-model/${local.foundational_model}"]
     }
     statement {
       sid = "AllowAgentToQueryKB"
@@ -111,7 +115,7 @@ resource "aws_bedrockagent_agent" "resume_agent" {
   agent_name                  = "resume-optimizer"
   agent_resource_role_arn     = aws_iam_role.bedrock_agent_role.arn
   idle_session_ttl_in_seconds = 300
-  foundation_model            = "amazon.nova-pro-v1:0"
+  foundation_model            = local.foundational_model
   instruction                 = "You are a professional at optimizing CS resumes to job applications. You will have access to a vector database which will contain the most important information about a job listing and a user resume. Your job is to edit the resume to increase the chance of being hired."
 
   memory_configuration {
@@ -129,4 +133,47 @@ resource "aws_bedrockagent_agent_knowledge_base_association" "bedrock_kb_agent_a
   knowledge_base_id = aws_bedrockagent_knowledge_base.rag_kb.id
   description = "Use this knowledge base to access and retrieve specific job listings and their requirements"
   knowledge_base_state = "ENABLED"
+}
+
+resource "terraform_data" "prepare_and_version_agent" {
+  triggers_replace = [
+    aws_bedrockagent_agent_knowledge_base_association.bedrock_kb_agent_association.id,
+    aws_bedrockagent_agent.resume_agent.instruction,
+    aws_bedrockagent_agent.resume_agent.foundation_model
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOT
+      echo "Triggering agent preparation..."
+      aws bedrock-agent prepare-agent --agent-id ${aws_bedrockagent_agent.resume_agent.id}
+
+      echo "Waiting for agent to finish preparing..."
+      while true; do
+        STATUS=$(aws bedrock-agent get-agent --agent-id ${aws_bedrockagent_agent.resume_agent.id} --query 'agent.agentStatus' --output text)
+        echo "Current status: $STATUS"
+        
+        if [ "$STATUS" = "PREPARED" ]; then
+          break
+        elif [ "$STATUS" = "FAILED" ]; then
+          echo "Agent preparation failed!"
+          exit 1
+        fi
+        sleep 3
+      done
+    EOT
+  }
+
+  depends_on = [aws_bedrockagent_agent_knowledge_base_association.bedrock_kb_agent_association]
+}
+
+resource "aws_bedrockagent_agent_alias" "resume_agent_alias" {
+  agent_id         = aws_bedrockagent_agent.resume_agent.id
+  agent_alias_name = var.agent_alias_id
+  description      = "Needed for Invoke Agent within boto3"
+
+  lifecycle {
+    replace_triggered_by = [
+      terraform_data.prepare_and_version_agent
+    ]
+  }
 }

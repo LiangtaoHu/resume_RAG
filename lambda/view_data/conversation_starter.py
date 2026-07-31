@@ -31,21 +31,23 @@ def handler(event, context):
             KeyConditionExpression = Key('HK').eq("USER#" + user_identity) & Key('SK').begins_with('JOB#'),
         ).get("Items", [])
         conversations = dynamo_table.query(
-            KeyConditionsExpression = Key('HK').eq("USER#" + user_identity) & Key('SK').begins_with("CONV#")
-        )
+            KeyConditionExpression = Key('HK').eq("USER#" + user_identity) & Key('SK').begins_with("CONV#")
+        ).get("Items", [])
 
         return {
             "statusCode": "200",
-            "headers": {"Content-Type": "application/json"},
+            "headers": {"Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, OPTIONS"},
             "data": json.dumps({"resumes": resumes, "job_listings": job_listings, "conversations": conversations})
         }
 
-    except Exception:
+    except Exception as e:
         return {
             "statusCode": "500",
             "headers": {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET, OPTIONS"},
-            "body": json.dumps({"error": "Interal DynamoDB error. Couldn't retrieve data."})
+            "body": json.dumps({"error": f"Interal DynamoDB error. Couldn't retrieve data. {e}"})
         }

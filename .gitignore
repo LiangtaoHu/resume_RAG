@@ -5,11 +5,9 @@ infrastructure/terraform.tfstate
 infrastructure/terraform.tfstate.1785184505.backup
 infrastructure/terraform.tfstate.backup
 
-infrastructure/lambda/chat/message_bedrock.zip
-infrastructure/lambda/delete_entries/delete_entry.zip
-infrastructure/lambda/parse_listing/parse_listing.zip
-infrastructure/lambda/upload_resume/*.zip
-infrastructure/lambda/view_data/view_data.zip
+lambda/chat/message_bedrock.zip
+lambda/delete_entries/delete_entry.zip
+lambda/view_data/conversation_starter.zip
 
 .terraform/
 .virtual_env/
